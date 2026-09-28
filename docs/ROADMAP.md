@@ -32,6 +32,28 @@ modeled.
 - **Local on-device library.** LumiMusic is cloud-first in this milestone. A MediaStore
   scanner is milestone 2.
 
+## Seeing the UI without a device
+
+`./gradlew testDebugUnitTest` renders the app's screens and components to PNGs on the
+JVM, via Robolectric with native graphics and Roborazzi. CI uploads them as the
+`screenshots` artifact on every run.
+
+Roborazzi rather than Paparazzi: it is a test-time library instead of an AGP-coupled
+Gradle plugin, which matters on this project's unusual toolchain (AGP 9 with built-in
+Kotlin). Robolectric is pinned to SDK 34 -- it needs a preinstrumented android-all jar
+for whatever level it runs, and those trail the newest platform badly. Tests run with
+`application = android.app.Application::class`, because booting the real one builds the
+whole dependency graph including encrypted storage the JVM has no provider for.
+
+This is not regression testing; it is sight. Within one session of having it, renders
+caught: every screen heading drawing black-on-black outside a Surface, generated artwork
+giving near-identical colours to adjacent keys, and three Now Playing layout flaws. All
+three were live on the device and none would ever have appeared in a log.
+
+Screens are split into a stateless `…Content` composable plus a thin container-bound
+wrapper so the awkward states -- unknown duration, playback error, empty library -- can be
+rendered in four lines each rather than reproduced by hand on a phone.
+
 ## Verification status — read this before trusting the table above
 
 Everything in milestone 1 **compiles, passes unit tests and passes lint in CI** on every
