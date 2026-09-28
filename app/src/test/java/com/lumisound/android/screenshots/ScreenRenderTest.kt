@@ -7,6 +7,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.lumisound.android.playback.PlaybackUiState
+import com.lumisound.android.ui.screens.cloud.CloudLibraryContent
+import com.lumisound.android.ui.screens.cloud.CloudView
+import com.lumisound.android.ui.screens.cloud.TrackActions
 import com.lumisound.android.ui.screens.nowplaying.MiniPlayer
 import com.lumisound.android.ui.screens.nowplaying.NowPlayingContent
 import com.lumisound.android.ui.theme.LocalLumiPalette
@@ -87,6 +90,60 @@ class ScreenRenderTest {
             ),
             onSeek = {}, onToggle = {}, onPrevious = {}, onNext = {},
             onShuffle = {}, onRepeat = {}, onSpeed = {}, onOpenQueue = {},
+        )
+    }
+
+    private fun cloudTrack(
+        title: String,
+        artist: String,
+        album: String,
+        seconds: Double,
+        locked: Boolean = false,
+    ) = com.lumisound.android.data.db.CloudTrackEntity(
+        serverPath = "$album/$title.opus${if (locked) ".lms" else ""}",
+        remoteId = title,
+        title = title,
+        artist = artist,
+        album = album,
+        durationSeconds = seconds,
+        genre = "",
+        trackNumber = "",
+        hasArtwork = false,
+        isLocked = locked,
+        ext = "opus",
+        filename = "$title.opus",
+        bpm = null,
+        uploadedAt = null,
+        syncedAt = 0,
+    )
+
+    private val library = listOf(
+        cloudTrack("After Hours", "Midnight Arcade", "Midnight Arcade", 221.0),
+        cloudTrack("Big Sky Radio", "Paper Satellites", "Paper Moons", 176.0),
+        cloudTrack("Blue Room", "Lumen Drift", "Blue Room Sessions", 284.0, locked = true),
+        cloudTrack("Chrome Sunset", "Neon Harbor", "Afterglow Avenue", 224.0),
+        cloudTrack("Cold Signal", "Glass Meridian", "Glass Meridian", 247.0),
+        cloudTrack("Fog Horn Lullaby", "Sable Coast", "Quiet Orbit", 195.0, locked = true),
+    )
+
+    @Test
+    fun cloudLibrary() = capture("screen-cloud-library") {
+        CloudLibraryContent(
+            tracks = library,
+            recentlyAdded = library.take(4),
+            favoriteIds = setOf(library[1].serverPath),
+            downloadedPaths = setOf(library[2].serverPath),
+            playingPath = library[0].serverPath,
+            query = "",
+            onQueryChange = {},
+            view = CloudView.All,
+            onViewChange = {},
+            artworkModelFor = { null },
+            onPlay = { _, _ -> },
+            onShuffle = {},
+            onImport = {},
+            onRefresh = {},
+            actions = TrackActions({}, {}, {}, {}, {}, {}),
         )
     }
 
