@@ -73,12 +73,7 @@ class LumisoundLockDataSource(
             if (read > 0) logicalPosition += read
             return read
         }
-        var phase = (logicalPosition % KEY.size).toInt()
-        for (i in 0 until read) {
-            buffer[offset + i] = (buffer[offset + i].toInt() xor KEY[phase].toInt()).toByte()
-            phase++
-            if (phase == KEY.size) phase = 0
-        }
+        LumisoundLockMask.unmaskInPlace(buffer, offset, read, logicalPosition)
         logicalPosition += read
         return read
     }
@@ -117,7 +112,7 @@ class LumisoundLockDataSource(
                 if (n <= 0) break
                 filled += n
             }
-            if (filled == MAGIC.size && head.contentEquals(MAGIC)) MAGIC.size else 0
+            if (LumisoundLockMask.hasMagic(head, filled)) MAGIC.size else 0
         } catch (e: Exception) {
             // Assume the modern format on a failed probe: every file this app or
             // Lumisound has uploaded since the real lock shipped carries the header,
@@ -147,18 +142,7 @@ class LumisoundLockDataSource(
         /** Query marker this app appends to a locked track's stream URL. */
         const val LOCKED_MARKER = "lms"
 
-        private val MAGIC = "LMSLOCK1".toByteArray(Charsets.US_ASCII)
-
-        /**
-         * Byte-identical to `LumisoundLockFormat.key` (iOS), `TVLockFormat` (tvOS)
-         * and `locked_media.LOCK_KEY` (bridge). Not a secret -- it ships in every
-         * client -- and not meant to be: this is format lock-in, not DRM.
-         */
-        private val KEY = byteArrayOf(
-            0x4C, 0x75, 0x6D, 0x69, 0x53, 0x6F, 0x75, 0x6E,
-            0x64, 0x45, 0x78, 0x63, 0x6C, 0x75, 0x73, 0x69,
-            0x76, 0x65, 0x4C, 0x6F, 0x63, 0x6B, 0x21, 0x21,
-        )
+        private val MAGIC = LumisoundLockMask.MAGIC
 
         private val headerOffsets = ConcurrentHashMap<String, Int>()
     }
