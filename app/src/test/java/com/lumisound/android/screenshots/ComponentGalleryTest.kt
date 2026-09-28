@@ -53,7 +53,7 @@ import org.robolectric.annotation.GraphicsMode
 @Config(
     sdk = [34],
     application = android.app.Application::class,
-    qualifiers = "w411dp-h891dp-xxhdpi",
+    qualifiers = "w411dp-h891dp-xxhdpi-night",
 )
 class ComponentGalleryTest {
 
@@ -105,12 +105,14 @@ class ComponentGalleryTest {
     fun shelves() = capture("component-shelf") {
         SectionHeader("Recently added", subtitle = "Newest uploads to your cloud storage")
         androidx.compose.foundation.lazy.LazyRow {
-            items(count = 3) { index ->
+            items(count = 4) { index ->
                 ShelfCard(
-                    title = listOf("Windy and Ripply", "Splash Hill", "Mario & Sonic")[index],
-                    subtitle = listOf("Sonic Sound Archive", "Sonic Sound Archive", "BlueGuyAmy")[index],
+                    title = listOf("Title 1", "Title 2", "Title 3", "Title 4")[index],
+                    subtitle = "Sonic Sound Archive",
                     artworkModel = null,
-                    fallbackKey = "shelf-$index",
+                    // Deliberately near-identical keys: this is the case that used to render
+                    // four cards of the same colour.
+                    fallbackKey = "(Mario) The Music Box OST - Title ${index + 1}.opus.lms",
                     onClick = {},
                 )
             }

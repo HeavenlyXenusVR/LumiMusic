@@ -69,7 +69,12 @@ fun LumiMusicTheme(
     content: @Composable () -> Unit,
 ) {
     val accent = parseAccent(accentHex)
-    val dark = isSystemInDarkTheme()
+    // Dark always, for now. The light palette below exists but has never been looked at on
+    // a real screen, and shipping a half-designed second surface to whoever happens to have
+    // light mode on is worse than having one surface that was actually designed.
+    @Suppress("UNUSED_VARIABLE")
+    val systemDark = isSystemInDarkTheme()
+    val dark = true
 
     // The page is a very dark plum that lifts toward the accent's hue at the top rather
     // than flat black: it gives artwork something to sit on and makes the accent read as

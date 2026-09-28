@@ -72,10 +72,9 @@ fun Artwork(
 
 @Composable
 fun FallbackArt(key: String, modifier: Modifier = Modifier) {
-    val hash = key.hashCode()
-    val hue = ((hash % 360) + 360) % 360
-    val top = Color.hsl(hue.toFloat(), 0.42f, 0.34f)
-    val bottom = Color.hsl(((hue + 38) % 360).toFloat(), 0.46f, 0.20f)
+    val palette = fallbackPaletteFor(key)
+    val top = Color.hsl(palette.hue, palette.saturation, palette.lightness)
+    val bottom = Color.hsl((palette.hue + 38f) % 360f, palette.saturation + 0.04f, palette.lightness - 0.14f)
     Box(
         modifier.background(Brush.linearGradient(listOf(top, bottom))),
         contentAlignment = Alignment.Center,
@@ -86,6 +85,34 @@ fun FallbackArt(key: String, modifier: Modifier = Modifier) {
             tint = Color.White.copy(alpha = 0.28f),
         )
     }
+}
+
+/**
+ * Hue, saturation and lightness for a key's generated artwork.
+ *
+ * `hashCode() % 360` looked fine in code and was wrong on screen: Java's string hash for
+ * two nearly-identical keys differs by a tiny amount, so "Title 1" and "Title 2" -- or a
+ * row of tracks from one folder -- came out the same colour, which is exactly what a wall
+ * of identical green shelf cards looked like. Mixing the bits first (a 32-bit avalanche,
+ * the same trick hash tables use) sends near-identical inputs to unrelated hues, and two
+ * further slices of the mixed value vary saturation and lightness so neighbours differ by
+ * more than hue alone.
+ */
+data class FallbackPalette(val hue: Float, val saturation: Float, val lightness: Float)
+
+fun fallbackPaletteFor(key: String): FallbackPalette {
+    var x = key.hashCode()
+    x = x xor (x ushr 16)
+    x *= 0x7feb352d
+    x = x xor (x ushr 15)
+    x *= 0x846ca68b
+    x = x xor (x ushr 16)
+    val mixed = x.toLong() and 0xFFFFFFFFL
+    return FallbackPalette(
+        hue = (mixed % 360L).toFloat(),
+        saturation = 0.34f + ((mixed shr 9) % 22L) / 100f,
+        lightness = 0.26f + ((mixed shr 17) % 14L) / 100f,
+    )
 }
 
 /** A section title with an optional trailing action, used above every list and shelf. */
