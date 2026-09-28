@@ -1,6 +1,7 @@
 package com.lumisound.android.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -126,7 +127,15 @@ fun LumiMusicTheme(
         )
     }
 
-    CompositionLocalProvider(LocalLumiPalette provides palette) {
+    CompositionLocalProvider(
+        LocalLumiPalette provides palette,
+        // Material3 defaults LocalContentColor to BLACK and relies on a Surface to provide
+        // the right one. This app draws its screens straight onto a gradient with no
+        // Surface in between, so every Text that did not pass an explicit colour -- section
+        // titles, screen headings -- was rendering black on a near-black page. Providing it
+        // at the theme means a composable never has to know what it is sitting on.
+        LocalContentColor provides colors.onBackground,
+    ) {
         MaterialTheme(
             colorScheme = colors,
             shapes = Shapes(

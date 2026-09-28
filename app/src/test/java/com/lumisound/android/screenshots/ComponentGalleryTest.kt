@@ -131,6 +131,21 @@ class ComponentGalleryTest {
     }
 
     @Test
+    fun headings() = capture("component-headings") {
+        // The screen headings sit directly on the page gradient with no Surface in between,
+        // which is exactly the arrangement that rendered them black.
+        Text(
+            "Cloud",
+            style = androidx.compose.material3.MaterialTheme.typography.displaySmall,
+            modifier = Modifier.padding(start = 20.dp),
+        )
+        Pill("3545 tracks", Modifier.padding(start = 20.dp))
+        Spacer(Modifier.height(14.dp))
+        SectionHeader("Recently added", subtitle = "Newest uploads to your cloud storage")
+        SectionHeader("All tracks", subtitle = "3545 in your cloud storage")
+    }
+
+    @Test
     fun emptyState() = capture("component-empty") {
         EmptyState(
             icon = Icons.Filled.CloudQueue,
