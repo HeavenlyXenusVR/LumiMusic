@@ -48,6 +48,11 @@ data class PlaybackUiState(
     val speed: Float = 1f,
     val isLocalSource: Boolean = false,
     val playbackError: String? = null,
+    /**
+     * Filled in by the UI, not the player: whether the current track is a favorite is
+     * account state, and the session has no idea about it.
+     */
+    val isFavorite: Boolean = false,
 )
 
 /**

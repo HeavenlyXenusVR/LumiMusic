@@ -77,21 +77,7 @@ fun Artwork(
 }
 
 @Composable
-fun FallbackArt(key: String, modifier: Modifier = Modifier) {
-    val palette = fallbackPaletteFor(key)
-    val top = Color.hsl(palette.hue, palette.saturation, palette.lightness)
-    val bottom = Color.hsl((palette.hue + 38f) % 360f, palette.saturation + 0.04f, palette.lightness - 0.14f)
-    Box(
-        modifier.background(Brush.linearGradient(listOf(top, bottom))),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Icons.Filled.MusicNote,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.28f),
-        )
-    }
-}
+fun FallbackArt(key: String, modifier: Modifier = Modifier) = BlobArt(key, modifier)
 
 private val artworkFailures = java.util.concurrent.atomic.AtomicInteger()
 

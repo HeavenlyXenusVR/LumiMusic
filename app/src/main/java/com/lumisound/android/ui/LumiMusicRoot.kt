@@ -44,6 +44,7 @@ import com.lumisound.android.ui.screens.queue.QueueSheet
 import com.lumisound.android.ui.screens.settings.SettingsScreen
 import com.lumisound.android.ui.screens.signin.SignInScreen
 import com.lumisound.android.ui.theme.LocalLumiPalette
+import kotlinx.coroutines.launch
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     Cloud("Cloud", Icons.Filled.CloudQueue),
@@ -84,13 +85,17 @@ fun LumiMusicRoot(container: AppContainer) {
 @Composable
 private fun SignedInShell(container: AppContainer) {
     val palette = LocalLumiPalette.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var tab by remember { mutableStateOf(Tab.Cloud) }
     var settingsDestination by remember { mutableStateOf<SettingsDestination?>(null) }
     var showNowPlaying by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
     var pendingAdd by remember { mutableStateOf<PendingPlaylistAdd?>(null) }
-    val playback by container.player.state.collectAsStateWithLifecycle()
+    val rawPlayback by container.player.state.collectAsStateWithLifecycle()
+    val favoriteIds by container.database.favorites().observeIds()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val playback = rawPlayback.copy(isFavorite = rawPlayback.serverPath in favoriteIds)
 
     Scaffold(
         // The page gradient lives on the scaffold so every screen shares one background
@@ -105,6 +110,14 @@ private fun SignedInShell(container: AppContainer) {
                         onToggle = container.player::togglePlayPause,
                         onNext = { container.player.next() },
                         onExpand = { showNowPlaying = true },
+                        onFavorite = {
+                            val path = playback.serverPath ?: return@MiniPlayer
+                            scope.launch {
+                                container.libraryRepository.toggleFavorite(
+                                    path, playback.title, playback.artist, null,
+                                )
+                            }
+                        },
                     )
                 }
                 NavigationBar(

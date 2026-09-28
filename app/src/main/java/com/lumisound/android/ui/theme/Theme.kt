@@ -77,17 +77,17 @@ fun LumiMusicTheme(
     val systemDark = isSystemInDarkTheme()
     val dark = true
 
-    // The page is a very dark plum that lifts toward the accent's hue at the top rather
-    // than flat black: it gives artwork something to sit on and makes the accent read as
-    // part of the surface instead of a sticker on it.
+    // Deep navy rather than neutral black, matching Lumisound's own surfaces, lifted
+    // slightly toward the accent's hue at the top so artwork has something to sit on and
+    // the accent reads as part of the surface instead of a sticker on it.
     val palette = if (dark) {
         LumiPalette(
             accent = accent,
-            pageTop = accent.copy(alpha = 0.10f).compositeOver(Color(0xFF0E0C14)),
-            pageBottom = Color(0xFF07060B),
-            elevatedSurface = Color(0xFF17151F),
-            hairline = Color(0x12FFFFFF),
-            accentWash = accent.copy(alpha = 0.14f),
+            pageTop = accent.copy(alpha = 0.09f).compositeOver(Color(0xFF111528)),
+            pageBottom = Color(0xFF080A14),
+            elevatedSurface = Color(0xFF1A1F33),
+            hairline = Color(0x14FFFFFF),
+            accentWash = accent.copy(alpha = 0.16f),
         )
     } else {
         LumiPalette(
@@ -108,14 +108,15 @@ fun LumiMusicTheme(
             onPrimaryContainer = Color(0xFFF6F2FA),
             secondary = accent.copy(alpha = 0.8f),
             background = palette.pageBottom,
-            onBackground = Color(0xFFF4F1F9),
+            // Lumisound's own text tokens, so the two apps read as one family.
+            onBackground = Color(0xFFF7FAFC),
             surface = palette.elevatedSurface,
-            onSurface = Color(0xFFF4F1F9),
-            surfaceVariant = Color(0xFF221F2E),
-            onSurfaceVariant = Color(0xFFA9A3BC),
-            outline = Color(0xFF3A3648),
-            outlineVariant = Color(0xFF272433),
-            error = Color(0xFFFF6B7A),
+            onSurface = Color(0xFFF7FAFC),
+            surfaceVariant = Color(0xFF232942),
+            onSurfaceVariant = Color(0xFFCBD5E0),
+            outline = Color(0xFF3A4260),
+            outlineVariant = Color(0xFF262C42),
+            error = Color(0xFFFC8181),
         )
     } else {
         lightColorScheme(

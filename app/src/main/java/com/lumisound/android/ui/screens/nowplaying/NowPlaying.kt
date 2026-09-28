@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
@@ -70,6 +72,7 @@ fun MiniPlayer(
     onToggle: () -> Unit,
     onNext: () -> Unit,
     onExpand: () -> Unit,
+    onFavorite: () -> Unit = {},
 ) {
     val palette = LocalLumiPalette.current
     val progress by animateFloatAsState(
@@ -81,27 +84,21 @@ fun MiniPlayer(
     Column(
         Modifier
             .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(palette.elevatedSurface)
             .clickable(onClick = onExpand)
     ) {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(palette.hairline)) {
-            Box(
-                Modifier
-                    .fillMaxWidth(progress)
-                    .fillMaxHeight()
-                    .background(palette.accent)
-            )
-        }
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 12.dp, top = 8.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
             Artwork(
                 model = state.artworkUrl,
                 fallbackKey = state.serverPath ?: state.title.orEmpty(),
-                size = 42.dp,
-                corner = 9.dp,
+                size = 44.dp,
+                corner = 11.dp,
             )
             Column(Modifier.weight(1f)) {
                 OneLine(state.title ?: "Nothing playing", style = MaterialTheme.typography.titleSmall)
@@ -111,16 +108,51 @@ fun MiniPlayer(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onToggle) {
+            IconButton(onClick = onFavorite, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    if (state.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = "Favorite",
+                    tint = if (state.isFavorite) palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+            // The one filled control on the bar, as on iOS: everything else is an outline.
+            Box(
+                Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(palette.accent)
+                    .clickable(onClick = onToggle),
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(21.dp),
                 )
             }
-            IconButton(onClick = onNext) {
-                Icon(Icons.Filled.SkipNext, contentDescription = "Next")
+            IconButton(onClick = onNext, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Filled.SkipNext, contentDescription = "Next", modifier = Modifier.size(22.dp))
             }
         }
+        Box(
+            Modifier
+                .padding(horizontal = 12.dp)
+                .fillMaxWidth()
+                .height(3.dp)
+                .clip(CircleShape)
+                .background(palette.hairline)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(progress)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(palette.accent)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
