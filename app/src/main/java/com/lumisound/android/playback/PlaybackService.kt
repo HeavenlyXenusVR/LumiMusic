@@ -14,8 +14,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaSession
-import androidx.media3.datasource.DataSourceBitmapLoader
-import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaSessionService
 import com.lumisound.android.LumiMusicApp
 import com.google.common.util.concurrent.MoreExecutors

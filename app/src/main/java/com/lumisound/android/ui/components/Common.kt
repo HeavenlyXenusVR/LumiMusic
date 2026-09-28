@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,7 +34,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import com.lumisound.android.diagnostics.AppLogger
 import com.lumisound.android.ui.theme.LocalLumiPalette
@@ -67,9 +67,10 @@ fun Artwork(
                 // finished-looking thing, so a failed load simply stays as it is. It is
                 // still counted, because "no artwork anywhere" looked identical to "this
                 // library has no artwork" for an entire release.
-                onState = { state -> if (state is AsyncImagePainter.State.Error) noteArtworkFailure(model) },
                 loading = {},
-                error = {},
+                // Counted from inside the error slot, keyed on the model so one failed
+                // image is recorded once rather than on every recomposition.
+                error = { LaunchedEffect(model) { noteArtworkFailure(model) } },
             )
         }
     }
