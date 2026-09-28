@@ -53,7 +53,7 @@ import org.robolectric.annotation.GraphicsMode
 @Config(
     sdk = [34],
     application = android.app.Application::class,
-    qualifiers = "w411dp-h891dp-xxhdpi-night",
+    qualifiers = "w411dp-h891dp-night-xxhdpi",
 )
 class ComponentGalleryTest {
 
