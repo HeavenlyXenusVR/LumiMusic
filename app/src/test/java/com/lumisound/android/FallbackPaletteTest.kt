@@ -51,12 +51,36 @@ class FallbackPaletteTest {
             "Title 1.opus.lms" to "Title 2.opus.lms",
             "shelf-0" to "shelf-1",
             "Sonic/Act 1.mp3" to "Sonic/Act 2.mp3",
-            "a" to "b",
+            "(Mario) The Music Box OST - Title 9.opus.lms" to "(Mario) The Music Box OST - Title 10.opus.lms",
         )
         pairs.forEach { (first, second) ->
             val d = distance(first, second)
             assertTrue("\"$first\" and \"$second\" differ by only $d", d > 0.10f)
         }
+    }
+
+    /**
+     * The honest limit of a constrained palette: six bands cannot guarantee that ANY two
+     * keys differ -- single-character keys like "a" and "b" can land close together, and
+     * widening the palette to fix that would put covers back in the olive band this whole
+     * approach exists to avoid. What is worth holding is that collisions stay rare across a
+     * realistic library, so a screen full of covers never reads as repeated.
+     */
+    @Test
+    fun `collisions are rare across a realistic library`() {
+        val keys = buildList {
+            (1..120).forEach { add("Midnight Arcade/After Hours $it.opus.lms") }
+            (1..120).forEach { add("Sonic Sound Archive/Act $it.mp3") }
+            (1..120).forEach { add("Imported Music/Late Night/track-$it.flac") }
+        }
+        val pairs = keys.indices.flatMap { i -> (i + 1 until keys.size).map { j -> keys[i] to keys[j] } }
+        val tooClose = pairs.count { (a, b) -> distance(a, b) < 0.08f }
+        val ratio = tooClose.toFloat() / pairs.size
+        assertTrue("$tooClose of ${pairs.size} pairs (${ratio * 100}%) are near-identical", ratio < 0.03f)
+
+        // Neighbours matter more than distant pairs: those are the ones seen side by side.
+        val worstNeighbour = keys.zipWithNext().minOf { (a, b) -> distance(a, b) }
+        assertTrue("closest neighbouring pair differs by only $worstNeighbour", worstNeighbour > 0.06f)
     }
 
     @Test

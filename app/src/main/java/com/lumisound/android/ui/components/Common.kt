@@ -137,8 +137,10 @@ fun fallbackPaletteFor(key: String): FallbackPalette {
     x *= 0x846ca68bu.toInt()
     x = x xor (x ushr 16)
     val mixed = x.toLong() and 0xFFFFFFFFL
-    val (bandStart, bandEnd) = HUE_BANDS[(mixed % HUE_BANDS.size).toInt()]
-    val within = ((mixed shr 7) % 1000L) / 1000f
+    // Band from the high bits and position within it from the low ones, so two keys that
+    // happen to share a band are still unlikely to share a place inside it.
+    val (bandStart, bandEnd) = HUE_BANDS[((mixed shr 24) % HUE_BANDS.size).toInt()]
+    val within = (mixed % 1000L) / 1000f
     return FallbackPalette(
         hue = (bandStart + (bandEnd - bandStart) * within) % 360f,
         // Saturated and dark: these are fields for a bright orb to sit on, not flat tiles.
