@@ -14,9 +14,13 @@ import androidx.room.PrimaryKey
  */
 @Entity(tableName = "local_tracks", indices = [Index("title"), Index("artist"), Index("album"), Index("folder")])
 data class LocalTrackEntity(
-    /** MediaStore `_ID`, stable for as long as the file stays put. */
-    @PrimaryKey val mediaStoreId: Long,
-    val contentUri: String,
+    /**
+     * The content URI, not the MediaStore `_ID`: ids are unique per VOLUME, and this
+     * scan covers every mounted volume, so an id alone would let a track on an SD card
+     * silently replace one with the same id in internal storage.
+     */
+    @PrimaryKey val contentUri: String,
+    val mediaStoreId: Long,
     val title: String,
     val artist: String,
     val album: String,

@@ -1,5 +1,7 @@
 package com.lumisound.android.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumisound.android.AppContainer
 import com.lumisound.android.bridge.AccountState
@@ -38,6 +43,7 @@ import com.lumisound.android.ui.screens.nowplaying.NowPlayingSheet
 import com.lumisound.android.ui.screens.queue.QueueSheet
 import com.lumisound.android.ui.screens.settings.SettingsScreen
 import com.lumisound.android.ui.screens.signin.SignInScreen
+import com.lumisound.android.ui.theme.LocalLumiPalette
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     Cloud("Cloud", Icons.Filled.CloudQueue),
@@ -77,6 +83,7 @@ fun LumiMusicRoot(container: AppContainer) {
 
 @Composable
 private fun SignedInShell(container: AppContainer) {
+    val palette = LocalLumiPalette.current
     var tab by remember { mutableStateOf(Tab.Cloud) }
     var settingsDestination by remember { mutableStateOf<SettingsDestination?>(null) }
     var showNowPlaying by remember { mutableStateOf(false) }
@@ -86,6 +93,10 @@ private fun SignedInShell(container: AppContainer) {
     val playback by container.player.state.collectAsStateWithLifecycle()
 
     Scaffold(
+        // The page gradient lives on the scaffold so every screen shares one background
+        // rather than each drawing its own flat panel.
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        modifier = Modifier.fillMaxSize().background(palette.pageBrush),
         bottomBar = {
             Column {
                 if (playback.hasQueue) {
@@ -96,13 +107,21 @@ private fun SignedInShell(container: AppContainer) {
                         onExpand = { showNowPlaying = true },
                     )
                 }
-                NavigationBar {
+                NavigationBar(
+                    containerColor = palette.elevatedSurface,
+                    tonalElevation = 0.dp,
+                ) {
                     Tab.entries.forEach { entry ->
                         NavigationBarItem(
                             selected = tab == entry && settingsDestination == null,
                             onClick = { tab = entry; settingsDestination = null },
                             icon = { Icon(entry.icon, contentDescription = entry.label) },
-                            label = { Text(entry.label) },
+                            label = { Text(entry.label, style = MaterialTheme.typography.labelSmall) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = palette.accent,
+                                selectedTextColor = palette.accent,
+                                indicatorColor = palette.accentWash,
+                            ),
                         )
                     }
                 }

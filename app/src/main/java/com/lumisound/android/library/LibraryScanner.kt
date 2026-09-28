@@ -19,7 +19,17 @@ data class ScanState(
     val lastRunAt: Long? = null,
     val lastDurationMs: Long? = null,
     val error: String? = null,
-)
+    /** Every audio row MediaStore holds, before the "is music" filter. */
+    val audioRowsSeen: Int = 0,
+    val volumes: List<String> = emptyList(),
+) {
+    /**
+     * Audio exists on the device but none of it is flagged as music -- ringtones,
+     * notifications, podcasts and audiobooks all land here. Worth telling the user
+     * apart from "there is nothing at all", because the two have different fixes.
+     */
+    val hasNonMusicAudioOnly: Boolean get() = found == 0 && audioRowsSeen > 0
+}
 
 /**
  * Reads the device's own music with one MediaStore query.
@@ -91,11 +101,15 @@ class LibraryScanner(
 
         database.localTracks().replaceAll(tracks)
         val durationMs = System.currentTimeMillis() - startedAt
+        val audioRows = countAllAudioRows()
+        val volumes = volumeNames()
         _state.value = ScanState(
             running = false,
             found = tracks.size,
             lastRunAt = System.currentTimeMillis(),
             lastDurationMs = durationMs,
+            audioRowsSeen = audioRows,
+            volumes = volumes,
         )
         // One event per scan, with counts -- never one per track.
         remote.log(
@@ -108,13 +122,57 @@ class LibraryScanner(
                 "artists" to tracks.map { it.artist }.distinct().size,
                 "albums" to tracks.map { it.album }.distinct().size,
                 "folders" to tracks.map { it.folder }.distinct().size,
+                // The three fields that tell an empty device apart from a bad query.
+                "audioRowsAllVolumes" to audioRows,
+                "volumes" to volumes,
+                "permission" to AudioPermission.required.substringAfterLast('.'),
             ),
         )
         _state.value
     }
 
-    private fun query(): List<LocalTrackEntity> {
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+    /**
+     * Counts audio rows without the "is music" filter, per volume.
+     *
+     * The first device to run this found zero tracks with the permission granted and no
+     * error anywhere, which is a result with two completely different explanations --
+     * an empty device, or a query looking in the wrong place. Counting the unfiltered
+     * rows separates them, and costs one cheap COUNT-shaped cursor per scan.
+     */
+    private fun countAllAudioRows(): Int {
+        var total = 0
+        for (volume in volumeNames()) {
+            try {
+                context.contentResolver.query(
+                    MediaStore.Audio.Media.getContentUri(volume),
+                    arrayOf(MediaStore.Audio.Media._ID),
+                    null,
+                    null,
+                    null,
+                )?.use { total += it.count }
+            } catch (e: Exception) {
+                // A volume that cannot be queried is not a scan failure.
+            }
+        }
+        return total
+    }
+
+    /**
+     * Every mounted external volume, not just the primary one. `EXTERNAL_CONTENT_URI`
+     * is the primary volume alone, so music on an SD card is invisible to it -- and this
+     * device has a card slot.
+     */
+    private fun volumeNames(): List<String> = try {
+        MediaStore.getExternalVolumeNames(context).toList()
+    } catch (e: Exception) {
+        listOf(MediaStore.VOLUME_EXTERNAL)
+    }
+
+    private fun query(): List<LocalTrackEntity> =
+        volumeNames().flatMap { volume -> queryVolume(volume) }
+
+    private fun queryVolume(volume: String): List<LocalTrackEntity> {
+        val collection = MediaStore.Audio.Media.getContentUri(volume)
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -157,8 +215,8 @@ class LibraryScanner(
                 val relativePath = cursor.getStringOrEmpty(relative)
                 tracks.add(
                     LocalTrackEntity(
-                        mediaStoreId = mediaId,
                         contentUri = ContentUris.withAppendedId(collection, mediaId).toString(),
+                        mediaStoreId = mediaId,
                         title = cursor.getStringOrEmpty(title).ifBlank { "Unknown title" },
                         artist = cursor.getStringOrEmpty(artist).takeUnless { it == "<unknown>" }.orEmpty(),
                         album = cursor.getStringOrEmpty(album),

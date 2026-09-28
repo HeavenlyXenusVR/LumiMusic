@@ -22,7 +22,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.lumisound.android.ui.theme.LocalLumiPalette
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,6 +53,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SignInScreen(container: AppContainer, checkingSession: Boolean) {
     val scope = rememberCoroutineScope()
+    val palette = LocalLumiPalette.current
 
     var mode by remember { mutableStateOf(Mode.SignIn) }
     var username by remember { mutableStateOf("") }
@@ -72,12 +84,32 @@ fun SignInScreen(container: AppContainer, checkingSession: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(palette.pageBrush)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 48.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("LumiMusic", style = MaterialTheme.typography.titleLarge)
+        Box(
+            Modifier
+                .size(74.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(palette.accent, palette.accent.copy(alpha = 0.55f))
+                    )
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.GraphicEq,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(36.dp),
+            )
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("LumiMusic", style = MaterialTheme.typography.displaySmall)
         Spacer(Modifier.height(4.dp))
         Text(
             "Your Lumisound account, on Android. Sign in with the same username and password you use on iPhone.",
@@ -111,6 +143,7 @@ fun SignInScreen(container: AppContainer, checkingSession: Boolean) {
                     onValueChange = { username = it },
                     label = { Text("Username") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (mode == Mode.Register) {

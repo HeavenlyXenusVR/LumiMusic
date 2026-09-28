@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -31,7 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material3.Icon
 import com.lumisound.android.AppContainer
+import com.lumisound.android.ui.components.EmptyState
+import com.lumisound.android.ui.components.OneLine
+import com.lumisound.android.ui.components.Pill
+import com.lumisound.android.ui.components.TrackRow
 import kotlinx.coroutines.launch
 
 /**
@@ -58,14 +68,12 @@ fun PlaylistsScreen(container: AppContainer) {
             .collectAsStateWithLifecycle(initialValue = emptyList())
         val playlist = playlists.firstOrNull { it.id == selected }
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { openPlaylistId = null }) { Text("‹ All playlists") }
-                Text(
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { openPlaylistId = null }) { Text("‹ All") }
+                OneLine(
                     playlist?.name ?: "Playlist",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 TextButton(onClick = { scope.launch { container.libraryRepository.refreshPlaylist(selected) } }) {
                     Text("Refresh")
@@ -74,18 +82,19 @@ fun PlaylistsScreen(container: AppContainer) {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(tracks, key = { it.position }) { track ->
                     Row(
-                        Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+                        Modifier.fillMaxWidth().padding(start = 16.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        com.lumisound.android.ui.components.Artwork(
+                            model = null,
+                            fallbackKey = track.title ?: track.position.toString(),
+                            size = 44.dp,
+                        )
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
+                            OneLine(track.title ?: "Untitled", style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                track.title ?: "Untitled",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                track.artist.orEmpty(),
+                                track.artist.orEmpty().ifBlank { "Unknown artist" },
                                 maxLines = 1,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -109,13 +118,18 @@ fun PlaylistsScreen(container: AppContainer) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Cloud playlists",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f).padding(start = 16.dp),
-            )
-            TextButton(onClick = { creating = true }) { Text("New") }
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Playlists", style = MaterialTheme.typography.displaySmall)
+                Pill("${playlists.size} in the cloud")
+            }
+            TextButton(onClick = { creating = true }) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(" New")
+            }
         }
         busyNote?.let {
             Text(
@@ -127,13 +141,11 @@ fun PlaylistsScreen(container: AppContainer) {
         }
 
         if (playlists.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    "No playlists yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            EmptyState(
+                icon = Icons.Filled.QueueMusic,
+                title = "No playlists yet",
+                message = "Create one here, or import the playlists this account already has in Lumisound.",
+            )
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(playlists, key = { it.id }) { playlist ->
@@ -142,16 +154,17 @@ fun PlaylistsScreen(container: AppContainer) {
                         Modifier
                             .fillMaxWidth()
                             .clickable { openPlaylistId = playlist.id }
-                            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+                            .padding(start = 16.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        com.lumisound.android.ui.components.Artwork(
+                            model = null,
+                            fallbackKey = playlist.id,
+                            size = 48.dp,
+                        )
+                        Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                playlist.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            OneLine(playlist.name, style = MaterialTheme.typography.bodyLarge)
                             Text(
                                 "${playlist.trackCount} track${if (playlist.trackCount == 1) "" else "s"}",
                                 style = MaterialTheme.typography.labelSmall,

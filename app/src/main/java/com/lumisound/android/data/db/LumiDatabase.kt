@@ -15,7 +15,7 @@ import androidx.room.RoomDatabase
         LocalTrackEntity::class,
         DownloadEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class LumiDatabase : RoomDatabase() {

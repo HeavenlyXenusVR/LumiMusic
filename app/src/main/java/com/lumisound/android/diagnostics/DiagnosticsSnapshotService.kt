@@ -65,10 +65,10 @@ class DiagnosticsSnapshotService(
             // first snapshot of every run reported `signedIn: false` while a valid
             // 30-day session was being restored two hundred milliseconds later -- a
             // telemetry artefact that reads exactly like the bug it is not.
-            withTimeoutOrNull(SESSION_RESOLVE_TIMEOUT_MS) {
+            val resolved = withTimeoutOrNull(SESSION_RESOLVE_TIMEOUT_MS) {
                 account.first { it != AccountState.Unknown }
             }
-            send("app_launch")
+            send(if (resolved == null) "app_launch_session_timeout" else "app_launch")
             while (isActive) {
                 delay(INTERVAL_MS)
                 send("periodic")
@@ -225,6 +225,8 @@ class DiagnosticsSnapshotService(
 
     private companion object {
         const val INTERVAL_MS = 5 * 60 * 1_000L
-        const val SESSION_RESOLVE_TIMEOUT_MS = 8_000L
+        // 8s was too tight: this bridge's own cold-start auth call has been measured at
+        // 9.4s, so the launch snapshot still went out reporting an unresolved session.
+        const val SESSION_RESOLVE_TIMEOUT_MS = 25_000L
     }
 }

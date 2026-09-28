@@ -19,10 +19,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Search
+import com.lumisound.android.ui.components.EmptyState
+import com.lumisound.android.ui.components.OneLine
+import com.lumisound.android.ui.components.Pill
+import com.lumisound.android.ui.components.TrackRow
+import com.lumisound.android.ui.theme.LocalLumiPalette
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,6 +72,8 @@ fun DeviceLibraryScreen(container: AppContainer) {
         if (granted) scope.launch { container.libraryScanner.scan() }
     }
 
+    val playback by container.player.state.collectAsStateWithLifecycle()
+
     val tracks by remember(query, grouping, openGroup) {
         val dao = container.database.localTracks()
         when {
@@ -86,20 +99,20 @@ fun DeviceLibraryScreen(container: AppContainer) {
         container.player.play(tracks.map(LocalTrackEntity::toPlayable), index)
     }
 
+    val palette = LocalLumiPalette.current
+
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(
-                buildString {
-                    append("${tracks.size} shown")
-                    scanState.lastDurationMs?.let { append(" · scanned in ${it}ms") }
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(Modifier.weight(1f)) {
+                Text("Device", style = MaterialTheme.typography.displaySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("${tracks.size} shown")
+                    scanState.lastDurationMs?.let { Pill("scanned in ${it}ms") }
+                }
+            }
             TextButton(
                 enabled = !scanState.running,
                 // The permission launcher runs the scan itself when granted, so a denied
@@ -126,8 +139,14 @@ fun DeviceLibraryScreen(container: AppContainer) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            label = { Text("Search this device") },
+            placeholder = { Text("Search this device") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             singleLine = true,
+            shape = MaterialTheme.shapes.large,
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = palette.hairline,
+                focusedBorderColor = palette.accent,
+            ),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
@@ -146,22 +165,34 @@ fun DeviceLibraryScreen(container: AppContainer) {
         }
 
         if (tracks.isEmpty() && groups.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No music found on this device yet.", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "LumiMusic needs permission to read audio files before it can scan.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(14.dp))
+            // Three different situations look identical from a list with nothing in it, so
+            // the scan reports which one this is rather than leaving the user to guess.
+            val granted = AudioPermission.isGranted(LocalContext.current)
+            EmptyState(
+                icon = Icons.Filled.LibraryMusic,
+                title = when {
+                    !granted -> "Permission needed"
+                    scanState.hasNonMusicAudioOnly -> "Audio found, but no music"
+                    else -> "No music on this device"
+                },
+                message = when {
+                    !granted ->
+                        "LumiMusic needs permission to read audio files before it can scan this device."
+                    scanState.hasNonMusicAudioOnly ->
+                        "${scanState.audioRowsSeen} audio files are on this device, but Android does not " +
+                            "classify any of them as music — ringtones, notifications and podcasts are " +
+                            "excluded. Your cloud library is unaffected."
+                    else ->
+                        "The scan looked at ${scanState.volumes.size} storage volume" +
+                            (if (scanState.volumes.size == 1) "" else "s") +
+                            " and found no audio files at all. Your cloud library is unaffected."
+                },
+                action = {
                     Button(onClick = { permission.launch(AudioPermission.required) }) {
-                        Text("Scan for music")
+                        Text(if (granted) "Scan again" else "Grant permission")
                     }
-                }
-            }
+                },
+            )
             return@Column
         }
 
@@ -169,13 +200,13 @@ fun DeviceLibraryScreen(container: AppContainer) {
         if (showingGroupList) {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(groups, key = { it }) { group ->
-                    Text(
+                    OneLine(
                         group.ifBlank { "Unknown" },
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { openGroup = group }
-                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
                     )
                 }
             }
@@ -183,34 +214,28 @@ fun DeviceLibraryScreen(container: AppContainer) {
         }
 
         openGroup?.let { group ->
-            TextButton(onClick = { openGroup = null }) { Text("‹ ${grouping.label}") }
-            Text(
-                group,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { openGroup = null }) { Text("‹ ${grouping.label}") }
+                OneLine(group, style = MaterialTheme.typography.titleMedium)
+            }
         }
 
         LazyColumn(Modifier.fillMaxSize()) {
-            items(tracks, key = { it.mediaStoreId }) { track ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { play(tracks.indexOfFirst { it.mediaStoreId == track.mediaStoreId }) }
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                ) {
-                    Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        listOfNotNull(
-                            track.artist.takeIf { it.isNotBlank() },
-                            track.album.takeIf { it.isNotBlank() },
-                            (track.durationMs / 1000).takeIf { it > 0 }?.let { "%d:%02d".format(it / 60, it % 60) },
-                        ).joinToString(" · "),
-                        maxLines = 1,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            items(tracks, key = { it.contentUri }) { track ->
+                TrackRow(
+                    title = track.title,
+                    subtitle = listOfNotNull(
+                        track.artist.takeIf { it.isNotBlank() },
+                        track.album.takeIf { it.isNotBlank() },
+                    ).joinToString(" · ").ifBlank { "Unknown artist" },
+                    // MediaStore serves album art straight off the album id.
+                    artworkModel = "content://media/external/audio/albumart/${track.albumId}",
+                    fallbackKey = track.contentUri,
+                    duration = (track.durationMs / 1000).takeIf { it > 0 }
+                        ?.let { "%d:%02d".format(it / 60, it % 60) },
+                    isPlaying = playback.isLocalSource && playback.title == track.title,
+                    onClick = { play(tracks.indexOfFirst { it.contentUri == track.contentUri }) },
+                )
             }
         }
     }

@@ -47,8 +47,8 @@ interface LocalTrackDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tracks: List<LocalTrackEntity>)
 
-    @Query("DELETE FROM local_tracks WHERE mediaStoreId NOT IN (:keepIds)")
-    suspend fun deleteMissing(keepIds: List<Long>)
+    @Query("DELETE FROM local_tracks WHERE contentUri NOT IN (:keepUris)")
+    suspend fun deleteMissing(keepUris: List<String>)
 
     @Query("DELETE FROM local_tracks")
     suspend fun clear()
@@ -61,7 +61,7 @@ interface LocalTrackDao {
     @Transaction
     suspend fun replaceAll(tracks: List<LocalTrackEntity>) {
         upsert(tracks)
-        if (tracks.isEmpty()) clear() else deleteMissing(tracks.map { it.mediaStoreId })
+        if (tracks.isEmpty()) clear() else deleteMissing(tracks.map { it.contentUri })
     }
 }
 
