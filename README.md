@@ -20,8 +20,10 @@ same per-user cloud storage, so:
 
 ## Status
 
-Milestone 1 (account + cloud import + cloud playback) is what exists today. It builds,
-unit-tests and lints green in CI, but has **not yet been run on a device** — see
+Milestones 1 and 2 are built: account + cloud import + cloud playback, the device's own
+library, queue/shuffle/repeat/speed, offline downloads, favorites and playlist editing,
+the equalizer, and a full diagnostics/telemetry stack. Signed APKs are attached to every
+tagged release. See
 [docs/ROADMAP.md](docs/ROADMAP.md) for what is built, what is deliberately out of scope,
 and what comes next.
 
@@ -45,11 +47,15 @@ Neither is needed to build, run, or sign in.
 ## Architecture at a glance
 
 ```
+audio/         Equalizer + the audio session id the effects chain binds to
 bridge/        Retrofit APIs, auth interceptor, token store, URL builders
 cloud/         CloudImportService — pulls account data into the local mirror
-data/db/       Room mirror of server state (cloud tracks, favorites, playlists, history)
+data/db/       Room mirror of server state + the device library and offline downloads
+diagnostics/   Logger, telemetry upload, crash reporter, hang watchdog, HTTP metrics
+download/      Offline copies of cloud tracks (stored exactly as the server sent them)
+library/       MediaStore scan of the device's own music
 playback/      Media3 session service, lock-aware DataSource, play-history logger
-ui/            Compose screens (sign-in, cloud library, import, now playing, settings)
+ui/            Compose screens
 ```
 
 Dependencies are wired by hand in `AppContainer` — one app-scoped object of lazy

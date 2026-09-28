@@ -45,12 +45,41 @@ confirmed against the live server.
 or playback has been exercised against a real account. Everything about runtime behaviour is
 "should work", not "seen working" — the first device run is the next verification step.
 
-## Milestone 2 — the local library and the player proper (next)
+## Diagnostics and telemetry (built, v0.2.0)
 
-- MediaStore/SAF library scan, folders, artists, albums, genres
-- Queue management, shuffle/repeat, gapless, crossfade, EQ
-- Favorites/playlist editing, pushed to the same endpoints iOS uses
-- Downloads of cloud tracks for offline play
+Because the test device has no debugger attached, the app reports on itself.
+
+| Piece | What it does |
+|---|---|
+| `AppLogger` + `TelemetryUploader` | 600-line ring buffer flushed to `POST /internal/logs` every 30s in batches of 100, tagged with device/OS/app version/user id. A failed flush is requeued *and* spooled to disk. |
+| `CrashReporter` | Uncaught exception → stack + log tail written to disk, delivered next launch. Nothing is uploaded from inside the handler; the process is already dying. |
+| `MainThreadWatchdog` | Heartbeat to the main looper; captures the main thread's stack when one takes >2.5s. Catches the near-ANR stalls `ApplicationExitInfo` never reports. |
+| `HttpMetrics` | Calls, failures, last status, average and worst latency per route, with ids collapsed so the map stays bounded. |
+| `DiagnosticsSnapshotService` | Device, account, library, playback, HTTP and log-count state to `POST /api/log-event` every 5 min, at launch, and on foreground return. |
+| Diagnostics screen | All of the above live, a clipboard report, and a bug report that carries the last 200 log lines. |
+
+The foreground trigger is load-bearing, not decoration: on iOS the periodic tick
+effectively never fired, because a timer does not run while the process is suspended,
+and only launch-time samples ever reached the server.
+
+## Milestone 2 — the local library and the player proper (built, v0.2.0)
+
+| Piece | State | Notes |
+|---|---|---|
+| Device library scan | Done | One MediaStore query, grouped by artist/album/folder. A rescan upserts then deletes what was not found -- never "delete all, then insert". MediaStore's DTTT track encoding is decoded rather than sorted raw. |
+| Queue management | Done | Play next, enqueue, reorder, remove, skip-to, shuffle, repeat cycling, speed -- all against the media session, which stays the single source of truth for what plays next. |
+| Offline downloads | Done | Server bytes stored verbatim: a locked track stays masked on disk and the same data source unmasks it for the decoder, so an offline copy is no more playable outside this app than a streamed one. One transfer at a time, `.part` until complete. |
+| Favorites + playlist editing | Done | Written to the bridge first, mirrored locally only once accepted. A playlist is re-read after an edit because the server assigns each track the id a later removal needs. |
+| Equalizer | Done | The device's own, attached to a generated audio session id (session 0 means "whole output mix" on some devices and "nothing" on others), exposing the real band count plus `LoudnessEnhancer` for gain the stream's loudness header can only attenuate. |
+| Signed releases | Done | PKCS12 keystore (openssl, no JDK on the dev host) in CI secrets; every tag attaches APK + AAB + checksums. Minification off until a build has run on hardware. |
+
+### Still open from milestone 2
+
+- Gapless and crossfade (Media3 does gapless for same-format items already; a real
+  crossfade needs two players and a mixer)
+- SAF folder picking for libraries outside MediaStore's view
+- Sort options, per-track "go to artist/album", album art grid views
+- Playlist reordering (the bridge has no reorder route; it would need position rewrites)
 
 ## Milestone 3+ — the breadth surface
 
