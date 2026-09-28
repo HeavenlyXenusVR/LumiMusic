@@ -1,9 +1,9 @@
 import java.util.Properties
 
 plugins {
+    // No kotlin-android / compose-compiler plugin: AGP 9 compiles Kotlin and
+    // Compose itself, and applying either one on top is a hard error.
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
 
@@ -84,12 +84,6 @@ android {
 
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/DEPENDENCIES")
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
