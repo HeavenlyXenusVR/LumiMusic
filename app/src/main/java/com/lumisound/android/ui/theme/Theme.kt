@@ -164,6 +164,21 @@ fun LumiMusicTheme(
     }
 }
 
+/**
+ * Per-section icon tints.
+ *
+ * Lumisound gives each section header its own colour rather than repeating the accent, which
+ * is most of what makes a long scrolling screen readable as sections instead of one list.
+ */
+object SectionTint {
+    val Recent = Color(0xFF4FD1C5)
+    val Library = Color(0xFF63B3ED)
+    val Favorites = Color(0xFFF687B3)
+    val Offline = Color(0xFF9F7AEA)
+    val Device = Color(0xFFF6AD55)
+    val Playlists = Color(0xFF68D391)
+}
+
 private fun Color.compositeOver(background: Color): Color {
     val a = alpha
     return Color(

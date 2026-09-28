@@ -53,6 +53,7 @@ import com.lumisound.android.ui.components.ToolbarAction
 import com.lumisound.android.ui.components.TrackRow
 import com.lumisound.android.ui.components.trackSubtitle
 import com.lumisound.android.ui.theme.LocalLumiPalette
+import com.lumisound.android.ui.theme.SectionTint
 
 /** What a row's overflow menu can do. */
 data class TrackActions(
@@ -169,6 +170,7 @@ fun CloudLibraryContent(
                         IconSectionHeader(
                             Icons.Filled.NewReleases,
                             "Recently added",
+                            tint = SectionTint.Recent,
                             onSeeAll = { onViewChange(CloudView.Recent) },
                         )
                     }
@@ -187,7 +189,7 @@ fun CloudLibraryContent(
                     }
                 }
 
-                item { IconSectionHeader(Icons.Filled.LibraryMusic, "All tracks") }
+                item { IconSectionHeader(Icons.Filled.LibraryMusic, "All tracks", tint = SectionTint.Library) }
             }
 
             items(tracks, key = { it.serverPath }) { track ->

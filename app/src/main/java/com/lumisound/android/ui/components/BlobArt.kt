@@ -108,12 +108,14 @@ private fun blobSpecFor(key: String, palette: FallbackPalette): BlobSpec {
     val mixed = x.toLong() and 0xFFFFFFFFL
 
     val hue = palette.hue
-    val orbHue = (hue + 18f + (mixed % 26L)) % 360f
+    // The orb sits a little around the wheel from its field, the way a lit subject picks up
+    // a neighbouring colour rather than being a brighter copy of the background.
+    val orbHue = (hue + 12f + (mixed % 30L)) % 360f
     return BlobSpec(
-        fieldTop = Color.hsl(hue, palette.saturation + 0.10f, palette.lightness + 0.06f),
-        fieldBottom = Color.hsl((hue + 26f) % 360f, palette.saturation, (palette.lightness - 0.12f).coerceAtLeast(0.06f)),
-        orb = Color.hsl(orbHue, (palette.saturation + 0.30f).coerceAtMost(0.95f), 0.62f),
-        highlight = Color.hsl(orbHue, 0.55f, 0.80f),
+        fieldTop = Color.hsl(hue, palette.saturation, palette.lightness + 0.10f),
+        fieldBottom = Color.hsl((hue + 22f) % 360f, palette.saturation, (palette.lightness - 0.08f).coerceAtLeast(0.07f)),
+        orb = Color.hsl(orbHue, (palette.saturation + 0.26f).coerceAtMost(0.95f), 0.66f),
+        highlight = Color.hsl(orbHue, 0.62f, 0.86f),
         centerX = 0.32f + ((mixed shr 5) % 36L) / 100f,
         centerY = 0.30f + ((mixed shr 11) % 40L) / 100f,
         radius = 0.38f + ((mixed shr 19) % 18L) / 100f,

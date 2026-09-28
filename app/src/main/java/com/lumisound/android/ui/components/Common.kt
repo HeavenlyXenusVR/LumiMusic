@@ -120,10 +120,13 @@ fun fallbackPaletteFor(key: String): FallbackPalette {
     x *= 0x846ca68bu.toInt()
     x = x xor (x ushr 16)
     val mixed = x.toLong() and 0xFFFFFFFFL
+    val (bandStart, bandEnd) = HUE_BANDS[(mixed % HUE_BANDS.size).toInt()]
+    val within = ((mixed shr 7) % 1000L) / 1000f
     return FallbackPalette(
-        hue = (mixed % 360L).toFloat(),
-        saturation = 0.34f + ((mixed shr 9) % 22L) / 100f,
-        lightness = 0.26f + ((mixed shr 17) % 14L) / 100f,
+        hue = (bandStart + (bandEnd - bandStart) * within) % 360f,
+        // Saturated and dark: these are fields for a bright orb to sit on, not flat tiles.
+        saturation = 0.52f + ((mixed shr 9) % 26L) / 100f,
+        lightness = 0.20f + ((mixed shr 17) % 12L) / 100f,
     )
 }
 
