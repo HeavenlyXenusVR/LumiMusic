@@ -140,6 +140,39 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
         containerColor = palette.pageBottom,
         dragHandle = null,
     ) {
+        NowPlayingContent(
+            state = state,
+            onSeek = container.player::seekTo,
+            onToggle = container.player::togglePlayPause,
+            onPrevious = { container.player.previous() },
+            onNext = { container.player.next() },
+            onShuffle = { container.player.setShuffle(!state.shuffleEnabled) },
+            onRepeat = container.player::cycleRepeatMode,
+            onSpeed = { container.player.setSpeed(it) },
+            onOpenQueue = onOpenQueue,
+        )
+    }
+}
+
+/**
+ * Everything the Now Playing sheet draws, with no container behind it, so it can be
+ * rendered from a test with invented state -- including the states that are awkward to
+ * reach by hand, like a track whose duration the player never worked out.
+ */
+@Composable
+fun NowPlayingContent(
+    state: PlaybackUiState,
+    onSeek: (Long) -> Unit,
+    onToggle: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onSpeed: (Float) -> Unit,
+    onOpenQueue: () -> Unit,
+) {
+    val palette = LocalLumiPalette.current
+    run {
         Box(Modifier.fillMaxWidth()) {
             // The backdrop uses whatever the row uses: real artwork when the track has it,
             // otherwise the same generated gradient, so this screen always takes its colour
@@ -222,7 +255,7 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                     // false about the track instead of admitting what is not known.
                     value = if (known) (state.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f,
                     enabled = known,
-                    onValueChange = { container.player.seekTo((it * duration).toLong()) },
+                    onValueChange = { onSeek((it * duration).toLong()) },
                     colors = SliderDefaults.colors(
                         thumbColor = palette.accent,
                         activeTrackColor = palette.accent,
@@ -248,14 +281,14 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    IconButton(onClick = { container.player.setShuffle(!state.shuffleEnabled) }) {
+                    IconButton(onClick = onShuffle) {
                         Icon(
                             Icons.Filled.Shuffle,
                             contentDescription = "Shuffle",
                             tint = if (state.shuffleEnabled) palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    IconButton(onClick = { container.player.previous() }) {
+                    IconButton(onClick = onPrevious) {
                         Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", modifier = Modifier.size(38.dp))
                     }
                     Box(
@@ -263,7 +296,7 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                             .size(68.dp)
                             .clip(CircleShape)
                             .background(palette.accent)
-                            .clickable(onClick = container.player::togglePlayPause),
+                            .clickable(onClick = onToggle),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -273,10 +306,10 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                             modifier = Modifier.size(34.dp),
                         )
                     }
-                    IconButton(onClick = { container.player.next() }) {
+                    IconButton(onClick = onNext) {
                         Icon(Icons.Filled.SkipNext, contentDescription = "Next", modifier = Modifier.size(38.dp))
                     }
-                    IconButton(onClick = container.player::cycleRepeatMode) {
+                    IconButton(onClick = onRepeat) {
                         Icon(
                             // REPEAT_MODE_ONE == 1; the icon says which mode is on.
                             if (state.repeatMode == 1) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
@@ -301,7 +334,7 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                             state.speed < 1.6f -> 0.75f
                             else -> 1.0f
                         }
-                        container.player.setSpeed(next)
+                        onSpeed(next)
                     }) {
                         Icon(
                             Icons.Filled.Speed,
