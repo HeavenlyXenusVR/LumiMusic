@@ -195,7 +195,7 @@ fun IconSectionHeader(
     val palette = LocalLumiPalette.current
     val color = tint ?: palette.accent
     Row(
-        modifier.fillMaxWidth().padding(horizontal = 20.dp, top = 16.dp, bottom = 8.dp),
+        modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
