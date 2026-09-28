@@ -156,6 +156,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
