@@ -1,0 +1,110 @@
+package com.lumisound.android.playback
+
+import android.content.Intent
+import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
+import com.lumisound.android.LumiMusicApp
+import kotlin.math.pow
+
+/**
+ * The single place audio actually plays. A `MediaSessionService` so playback
+ * survives the UI being gone and shows up in the system notification, on
+ * Bluetooth controls and on a watch face without any of those being wired up
+ * individually.
+ */
+@OptIn(UnstableApi::class)
+class PlaybackService : MediaSessionService() {
+
+    private var session: MediaSession? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        val container = (application as LumiMusicApp).container
+
+        // Every cloud stream is an authenticated request, so the player shares the
+        // app's OkHttp client (and therefore its auth interceptor) rather than
+        // carrying credentials of its own. Locked `.lms` tracks unmask in flight --
+        // see LumisoundLockDataSource.
+        val httpFactory = OkHttpDataSource.Factory(container.http.client)
+        val dataSourceFactory = LumisoundLockDataSource.Factory(
+            DefaultDataSource.Factory(this, httpFactory)
+        )
+
+        val player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+
+        player.addListener(LoudnessListener(player, container.loudnessGains))
+
+        session = MediaSession.Builder(this, player).build()
+    }
+
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // Swiping the app away while paused should end the session rather than leave
+        // a dead notification behind; while playing, playback continues.
+        val player = session?.player
+        if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
+            stopSelf()
+        }
+    }
+
+    override fun onDestroy() {
+        session?.run {
+            player.release()
+            release()
+        }
+        session = null
+        super.onDestroy()
+    }
+}
+
+/**
+ * Applies the bridge's per-track loudness gain.
+ *
+ * `X-Loudness-Gain-Db` only exists on the stream response, so the value for a
+ * track is not known until its first bytes arrive -- the gain is therefore applied
+ * on transition AND re-applied once the track starts reading, which is when the
+ * header has actually been seen.
+ */
+@OptIn(UnstableApi::class)
+private class LoudnessListener(
+    private val player: Player,
+    private val gains: com.lumisound.android.bridge.LoudnessGainStore,
+) : Player.Listener {
+
+    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = apply(mediaItem)
+
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying) apply(player.currentMediaItem)
+    }
+
+    private fun apply(mediaItem: MediaItem?) {
+        val serverPath = mediaItem?.localConfiguration?.uri?.getQueryParameter("path")
+        val gainDb = gains.gainDb(serverPath)
+        // 1.0 (no change) for an unanalyzed track: silently attenuating audio the
+        // server has no measurement for would be worse than leaving it alone.
+        player.volume = if (gainDb == null) 1f else {
+            10.0.pow(gainDb.toDouble() / 20.0).toFloat().coerceIn(0.05f, 1f)
+        }
+    }
+}

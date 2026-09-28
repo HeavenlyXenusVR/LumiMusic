@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble debug
+        env:
+          # Optional: only needed for the bridge's legacy yt-dlp-backed routes.
+          LUMI_BRIDGE_API_KEY: ${{ secrets.LUMI_BRIDGE_API_KEY }}
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Lint
+        run: ./gradlew --no-daemon lintDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumimusic-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore

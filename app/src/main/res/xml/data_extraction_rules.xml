@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- The account token lives in EncryptedSharedPreferences keyed to this
+             device's keystore; a restored copy on another device would be
+             undecryptable noise, so it is excluded rather than backed up. -->
+        <exclude domain="sharedpref" path="lumimusic_secure_prefs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="lumimusic_secure_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>
