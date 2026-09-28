@@ -33,7 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
+import com.lumisound.android.diagnostics.AppLogger
 import com.lumisound.android.ui.theme.LocalLumiPalette
 
 /**
@@ -62,7 +64,10 @@ fun Artwork(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
                 // No spinner and no error glyph: the fallback underneath is already a
-                // finished-looking thing, so a failed load simply stays as it is.
+                // finished-looking thing, so a failed load simply stays as it is. It is
+                // still counted, because "no artwork anywhere" looked identical to "this
+                // library has no artwork" for an entire release.
+                onState = { state -> if (state is AsyncImagePainter.State.Error) noteArtworkFailure(model) },
                 loading = {},
                 error = {},
             )
@@ -83,6 +88,24 @@ fun FallbackArt(key: String, modifier: Modifier = Modifier) {
             Icons.Filled.MusicNote,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.28f),
+        )
+    }
+}
+
+private val artworkFailures = java.util.concurrent.atomic.AtomicInteger()
+
+/**
+ * Logs the first failure and every twenty-fifth after it. A library of a few thousand rows
+ * failing to load would otherwise fill the whole log ring with one repeated line and push
+ * out everything that explains why.
+ */
+private fun noteArtworkFailure(model: Any?) {
+    val count = artworkFailures.incrementAndGet()
+    if (count == 1 || count % 25 == 0) {
+        AppLogger.w(
+            "artwork",
+            "image load failed ($count so far)",
+            mapOf("model" to model?.toString()?.substringBefore('?')?.takeLast(90)),
         )
     }
 }

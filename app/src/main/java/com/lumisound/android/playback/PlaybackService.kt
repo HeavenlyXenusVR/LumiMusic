@@ -11,10 +11,16 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DataSourceBitmapLoader
+import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaSession
+import androidx.media3.datasource.DataSourceBitmapLoader
+import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaSessionService
 import com.lumisound.android.LumiMusicApp
+import com.google.common.util.concurrent.MoreExecutors
 import com.lumisound.android.audio.AudioSessionHolder
+import java.util.concurrent.Executors
 import kotlin.math.pow
 
 /**
@@ -64,7 +70,20 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(LoudnessListener(player, container.loudnessGains))
 
-        session = MediaSession.Builder(this, player).build()
+        // The media notification loads artwork through its own BitmapLoader, which by
+        // default uses an unauthenticated data source -- the same mistake that hid artwork in
+        // the app itself. Cloud artwork is JWT-gated, so the notification gets the app's
+        // client too, or it would quietly show a blank square for every cloud track.
+        val bitmapLoader = CacheBitmapLoader(
+            DataSourceBitmapLoader(
+                MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
+                httpFactory,
+            )
+        )
+
+        session = MediaSession.Builder(this, player)
+            .setBitmapLoader(bitmapLoader)
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
