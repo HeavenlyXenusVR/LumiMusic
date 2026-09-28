@@ -41,6 +41,26 @@ class LibraryScanner(
 
     suspend fun scan(): ScanState = withContext(Dispatchers.IO) {
         if (_state.value.running) return@withContext _state.value
+        // Checked before querying, not inferred from the result: without the
+        // permission MediaStore hands back an empty cursor instead of throwing, so a
+        // denied scan is indistinguishable from an empty device unless asked directly.
+        if (!AudioPermission.isGranted(context)) {
+            AppLogger.w("library", "scan skipped: ${AudioPermission.required} not granted")
+            remote.log(
+                "library",
+                "scan_denied",
+                level = "warn",
+                message = "${AudioPermission.required} not granted",
+                detail = mapOf("api" to android.os.Build.VERSION.SDK_INT),
+            )
+            _state.value = _state.value.copy(
+                running = false,
+                error = "LumiMusic needs permission to read audio files. Tap Rescan to grant it.",
+                lastRunAt = System.currentTimeMillis(),
+            )
+            return@withContext _state.value
+        }
+
         _state.value = _state.value.copy(running = true, error = null)
         val startedAt = System.currentTimeMillis()
 

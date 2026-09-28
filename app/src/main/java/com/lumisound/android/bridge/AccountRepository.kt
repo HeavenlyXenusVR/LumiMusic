@@ -2,6 +2,7 @@ package com.lumisound.android.bridge
 
 import android.os.Build
 import android.util.Log
+import com.lumisound.android.diagnostics.AppLogger
 import com.lumisound.android.bridge.model.AddFavoriteRequest
 import com.lumisound.android.bridge.model.BridgeUser
 import com.lumisound.android.bridge.model.LoginRequest
@@ -74,7 +75,12 @@ class AccountRepository(
     }
 
     suspend fun signIn(username: String, password: String): SignInResult = runCatchingAuth {
+        val startedAt = System.currentTimeMillis()
         val response = http.auth.login(LoginRequest(username.trim(), password, deviceName))
+        // Measured at 9.4s on the first real device: the server hashes with bcrypt and
+        // this is the app's slowest call by an order of magnitude. Logged so a slow sign-in
+        // is identifiable as slow rather than reported as a hang.
+        AppLogger.i("account", "login completed in ${System.currentTimeMillis() - startedAt}ms")
         when {
             response.requires2fa == true && response.pendingToken != null ->
                 SignInResult.TwoFactorRequired(response.pendingToken)

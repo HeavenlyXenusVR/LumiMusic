@@ -10,14 +10,17 @@ import com.lumisound.android.bridge.AccountState
 import com.lumisound.android.bridge.BridgeConfig
 import com.lumisound.android.bridge.TokenStore
 import com.lumisound.android.data.db.LumiDatabase
+import com.lumisound.android.library.AudioPermission
 import com.lumisound.android.playback.PlayerController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * A periodic structured readout of live app state -- device, account, library,
@@ -58,6 +61,13 @@ class DiagnosticsSnapshotService(
 
     fun start() {
         scope.launch {
+            // Wait for the session to resolve before the launch sample. Without this the
+            // first snapshot of every run reported `signedIn: false` while a valid
+            // 30-day session was being restored two hundred milliseconds later -- a
+            // telemetry artefact that reads exactly like the bug it is not.
+            withTimeoutOrNull(SESSION_RESOLVE_TIMEOUT_MS) {
+                account.first { it != AccountState.Unknown }
+            }
             send("app_launch")
             while (isActive) {
                 delay(INTERVAL_MS)
@@ -154,6 +164,11 @@ class DiagnosticsSnapshotService(
         val state = account.value
         return mapOf(
             "signedIn" to (state is AccountState.SignedIn),
+            // Whether a credential exists at all, separately from whether it has been
+            // validated yet: the two differ during startup and after a network failure,
+            // and conflating them hides which of those is happening.
+            "tokenPresent" to (tokenStore.token != null),
+            "sessionResolved" to (state != AccountState.Unknown),
             "userId" to tokenStore.userId,
             "username" to (state as? AccountState.SignedIn)?.user?.username,
             "bridgeIsOfficial" to config.isOfficial,
@@ -168,6 +183,14 @@ class DiagnosticsSnapshotService(
         "favorites" to database.favorites().count(),
         "playlists" to database.playlists().count(),
         "historyRows" to database.history().count(),
+        "localTracks" to database.localTracks().count(),
+        "downloads" to database.downloads().count(),
+        "downloadBytes" to database.downloads().totalBytes(),
+        // The permission the device actually wants, and whether it is held -- the first
+        // real session lost its whole device library to this and the snapshot could not
+        // say so.
+        "audioPermission" to AudioPermission.required.substringAfterLast('.'),
+        "audioPermissionGranted" to AudioPermission.isGranted(context),
     )
 
     private fun playbackSnapshot(): Map<String, Any?> {
@@ -202,5 +225,6 @@ class DiagnosticsSnapshotService(
 
     private companion object {
         const val INTERVAL_MS = 5 * 60 * 1_000L
+        const val SESSION_RESOLVE_TIMEOUT_MS = 8_000L
     }
 }

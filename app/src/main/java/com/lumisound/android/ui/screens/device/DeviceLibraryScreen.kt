@@ -1,6 +1,5 @@
 package com.lumisound.android.ui.screens.device
 
-import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumisound.android.AppContainer
 import com.lumisound.android.data.db.LocalTrackEntity
+import com.lumisound.android.library.AudioPermission
 import com.lumisound.android.playback.toPlayable
 import kotlinx.coroutines.launch
 
@@ -104,7 +104,7 @@ fun DeviceLibraryScreen(container: AppContainer) {
                 enabled = !scanState.running,
                 // The permission launcher runs the scan itself when granted, so a denied
                 // prompt never leaves a scan half-started.
-                onClick = { permission.launch(Manifest.permission.READ_MEDIA_AUDIO) },
+                onClick = { permission.launch(AudioPermission.required) },
             ) {
                 Text(if (scanState.running) "Scanning…" else "Rescan")
             }
@@ -157,7 +157,7 @@ fun DeviceLibraryScreen(container: AppContainer) {
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(14.dp))
-                    Button(onClick = { permission.launch(Manifest.permission.READ_MEDIA_AUDIO) }) {
+                    Button(onClick = { permission.launch(AudioPermission.required) }) {
                         Text("Scan for music")
                     }
                 }
