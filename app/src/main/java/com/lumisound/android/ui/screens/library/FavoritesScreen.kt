@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumisound.android.AppContainer
+import com.lumisound.android.playback.toPlayable
 import kotlinx.coroutines.launch
 
 /**
@@ -56,7 +57,15 @@ fun FavoritesScreen(container: AppContainer) {
                         scope.launch {
                             val track = container.database.cloudTracks().byPath(favorite.songId)
                                 ?: return@launch
-                            container.player.play(listOf(track), 0)
+                            container.player.play(
+                                listOf(
+                                    track.toPlayable(
+                                        container.config.baseUrl,
+                                        container.downloads.isDownloaded(track.serverPath),
+                                    )
+                                ),
+                                0,
+                            )
                         }
                     }
                     .padding(horizontal = 16.dp, vertical = 11.dp)

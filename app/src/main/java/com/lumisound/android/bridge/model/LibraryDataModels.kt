@@ -39,6 +39,32 @@ data class PlaylistDto(
     val tracks: List<PlaylistTrackDto> = emptyList(),
 )
 
+data class CreatePlaylistRequest(
+    val name: String,
+    val description: String? = null,
+    val folder: String? = null,
+    val tags: List<String> = emptyList(),
+)
+
+/** Every field is preserve-if-null server-side, so a partial update is safe. */
+data class UpdatePlaylistRequest(
+    val name: String? = null,
+    val description: String? = null,
+    val folder: String? = null,
+    val tags: List<String>? = null,
+)
+
+/** The bridge's `SyncTrack`: `title` is the only required field. */
+data class PlaylistTrackRequest(
+    val title: String,
+    val artist: String? = null,
+    val album: String? = null,
+    @SerializedName("local_song_id") val localSongId: String? = null,
+    @SerializedName("track_url") val trackUrl: String? = null,
+    @SerializedName("duration_seconds") val durationSeconds: Int? = 0,
+    val position: Int? = 0,
+)
+
 data class HistoryEntryDto(
     val id: String? = null,
     @SerializedName("track_url") val trackUrl: String? = null,

@@ -27,6 +27,15 @@ class MainActivity : ComponentActivity() {
                 .launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // A snapshot on return to the foreground: a repeating timer does not run while
+        // the process is suspended, so without this the periodic tick would in practice
+        // only ever produce launch-time samples -- exactly what happened on iOS.
+        lifecycle.addObserver(
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_START) container.diagnostics.noteForeground()
+            }
+        )
+
         setContent {
             val accent by container.cloudImport.importedAccent.collectAsStateWithLifecycle()
             LumiMusicTheme(accentHex = accent) {

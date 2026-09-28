@@ -39,17 +39,42 @@ class TokenStore(context: Context) {
     @Volatile
     private var cached: String? = prefs.getString(KEY_TOKEN, null)
 
+    @Volatile
+    private var cachedUserId: String? = cached?.let(::subjectOf)
+
     /** Read on every request from the OkHttp interceptor, hence the memory cache. */
     val token: String? get() = cached
 
+    /**
+     * The account id the current token belongs to, read out of the token's own
+     * payload. Telemetry needs it to attribute a log line, and asking the server
+     * for something already sitting in the credential would be silly -- no
+     * signature check is involved or needed, since this is only ever used as a
+     * label for logs the server re-derives anyway.
+     */
+    val userId: String? get() = cachedUserId
+
     fun save(token: String) {
         cached = token
+        cachedUserId = subjectOf(token)
         prefs.edit().putString(KEY_TOKEN, token).apply()
     }
 
     fun clear() {
         cached = null
+        cachedUserId = null
         prefs.edit().remove(KEY_TOKEN).apply()
+    }
+
+    private fun subjectOf(jwt: String): String? = try {
+        val payload = jwt.split('.').getOrNull(1) ?: return null
+        val json = String(
+            android.util.Base64.decode(payload, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING),
+            Charsets.UTF_8,
+        )
+        Regex("\"sub\"\\s*:\\s*\"([^\"]+)\"").find(json)?.groupValues?.get(1)
+    } catch (e: Exception) {
+        null
     }
 
     private companion object {

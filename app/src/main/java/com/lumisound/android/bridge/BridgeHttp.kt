@@ -5,7 +5,9 @@ import com.google.gson.GsonBuilder
 import com.lumisound.android.BuildConfig
 import com.lumisound.android.bridge.api.AuthApi
 import com.lumisound.android.bridge.api.CloudMusicApi
+import com.lumisound.android.bridge.api.DiagnosticsApi
 import com.lumisound.android.bridge.api.LibraryDataApi
+import com.lumisound.android.diagnostics.HttpMetrics
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -29,6 +31,8 @@ class BridgeHttp(
     private val tokenStore: TokenStore,
     /** Populated from the stream response's `X-Loudness-Gain-Db` header. */
     private val loudnessStore: LoudnessGainStore,
+    /** Counts every request's outcome per route for the diagnostics snapshot. */
+    private val httpMetrics: HttpMetrics,
 ) {
 
     val gson: Gson = GsonBuilder().setLenient().create()
@@ -43,6 +47,7 @@ class BridgeHttp(
         .writeTimeout(120, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .addInterceptor(AuthInterceptor(config, tokenStore))
+        .addInterceptor(httpMetrics.interceptor())
         .addNetworkInterceptor(LoudnessHeaderInterceptor(loudnessStore))
         .apply {
             if (BuildConfig.DEBUG) {
@@ -81,6 +86,7 @@ class BridgeHttp(
     val auth: AuthApi get() = current().create(AuthApi::class.java)
     val cloudMusic: CloudMusicApi get() = current().create(CloudMusicApi::class.java)
     val libraryData: LibraryDataApi get() = current().create(LibraryDataApi::class.java)
+    val diagnostics: DiagnosticsApi get() = current().create(DiagnosticsApi::class.java)
 }
 
 /**
@@ -96,6 +102,12 @@ private class AuthInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         if (request.header("Authorization") != null) return chain.proceed(request)
+
+        // The log-ingest route is unauthenticated server-side and does its own
+        // per-row attribution from the payload, so the session token has no reason
+        // to be sent there at all. (`/api/log-event` and `/bug-report` DO read it,
+        // optionally, to attach a user id -- those keep it.)
+        if (request.url.encodedPath.trimStart('/') == "internal/logs") return chain.proceed(request)
 
         val credential = if (BridgeConfig.isSharedKeyRoute(request.url.encodedPath)) {
             config.sharedApiKey

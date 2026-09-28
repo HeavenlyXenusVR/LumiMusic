@@ -14,6 +14,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.lumisound.android.LumiMusicApp
+import com.lumisound.android.audio.AudioSessionHolder
 import kotlin.math.pow
 
 /**
@@ -51,6 +52,15 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        // Bind the effects chain to a real session id rather than 0 -- see
+        // AudioSessionHolder. Generated here because the player is created here.
+        val audioManager = getSystemService(android.media.AudioManager::class.java)
+        val sessionId = audioManager?.generateAudioSessionId() ?: 0
+        if (sessionId != 0) {
+            player.audioSessionId = sessionId
+            AudioSessionHolder.publish(sessionId)
+        }
 
         player.addListener(LoudnessListener(player, container.loudnessGains))
 

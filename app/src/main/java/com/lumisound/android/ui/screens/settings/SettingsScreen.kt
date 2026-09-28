@@ -27,10 +27,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumisound.android.AppContainer
 import com.lumisound.android.BuildConfig
 import com.lumisound.android.bridge.AccountState
+import com.lumisound.android.ui.SettingsDestination
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(container: AppContainer, onOpenImport: () -> Unit) {
+fun SettingsScreen(
+    container: AppContainer,
+    onOpenImport: () -> Unit,
+    onOpen: (SettingsDestination) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val account by container.account.state.collectAsStateWithLifecycle()
     var bridgeUrl by remember { mutableStateOf(container.config.baseUrl) }
@@ -65,6 +70,31 @@ fun SettingsScreen(container: AppContainer, onOpenImport: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Sign out")
+        }
+
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+
+        Text("Playback & storage", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { onOpen(SettingsDestination.Equalizer) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Equalizer")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { onOpen(SettingsDestination.Downloads) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Offline downloads")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { onOpen(SettingsDestination.Diagnostics) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Diagnostics & telemetry")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { scope.launch { container.libraryScanner.scan() } },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Rescan device library")
         }
 
         Spacer(Modifier.height(24.dp))

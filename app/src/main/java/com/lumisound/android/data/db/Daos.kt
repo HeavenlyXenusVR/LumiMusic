@@ -58,6 +58,15 @@ interface FavoriteDao {
     @Query("SELECT songId FROM favorites")
     fun observeIds(): Flow<List<String>>
 
+    @Query("SELECT COUNT(*) FROM favorites")
+    suspend fun count(): Int
+
+    @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE songId = :songId)")
+    suspend fun contains(songId: String): Boolean
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertOne(item: FavoriteEntity)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(items: List<FavoriteEntity>)
 
@@ -81,6 +90,18 @@ interface PlaylistDao {
 
     @Query("SELECT * FROM playlist_tracks WHERE playlistId = :playlistId ORDER BY position")
     fun observeTracks(playlistId: String): Flow<List<PlaylistTrackEntity>>
+
+    @Query("SELECT * FROM playlist_tracks WHERE playlistId = :playlistId ORDER BY position")
+    suspend fun tracksOf(playlistId: String): List<PlaylistTrackEntity>
+
+    @Query("SELECT COUNT(*) FROM playlists")
+    suspend fun count(): Int
+
+    @Query("DELETE FROM playlists WHERE id = :id")
+    suspend fun deletePlaylist(id: String)
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :id")
+    suspend fun deleteTracksOf(id: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPlaylists(items: List<PlaylistEntity>)
@@ -107,6 +128,9 @@ interface PlaylistDao {
 interface PlayHistoryDao {
     @Query("SELECT * FROM play_history ORDER BY COALESCE(playedAt, '') DESC")
     fun observeAll(): Flow<List<PlayHistoryEntity>>
+
+    @Query("SELECT COUNT(*) FROM play_history")
+    suspend fun count(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(items: List<PlayHistoryEntity>)

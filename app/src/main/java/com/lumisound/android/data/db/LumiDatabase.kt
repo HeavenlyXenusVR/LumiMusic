@@ -12,8 +12,10 @@ import androidx.room.RoomDatabase
         PlaylistEntity::class,
         PlaylistTrackEntity::class,
         PlayHistoryEntity::class,
+        LocalTrackEntity::class,
+        DownloadEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class LumiDatabase : RoomDatabase() {
@@ -21,6 +23,8 @@ abstract class LumiDatabase : RoomDatabase() {
     abstract fun favorites(): FavoriteDao
     abstract fun playlists(): PlaylistDao
     abstract fun history(): PlayHistoryDao
+    abstract fun localTracks(): LocalTrackDao
+    abstract fun downloads(): DownloadDao
 
     companion object {
         fun build(context: Context): LumiDatabase =

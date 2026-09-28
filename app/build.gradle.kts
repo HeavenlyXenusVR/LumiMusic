@@ -34,10 +34,14 @@ android {
 
     defaultConfig {
         applicationId = "com.lumisound.android"
-        minSdk = 26
+        // Android 11. MediaStore's RELATIVE_PATH (29) and GENRE (30) columns are what
+        // make the library scan a single query instead of a per-file metadata read,
+        // and conditionally building the projection around two columns to reach a few
+        // percent more devices is not a trade worth making for a new app.
+        minSdk = 30
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         buildConfigField("String", "DEFAULT_BRIDGE_URL", "\"https://lumisound-bridge.xenusanimations.studio\"")
         buildConfigField("String", "BRIDGE_API_KEY", "\"$bridgeApiKey\"")
@@ -54,6 +58,9 @@ android {
             val storePath = props?.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
             if (storePath != null && file(storePath).exists()) {
                 storeFile = file(storePath)
+                // PKCS12, not JKS: the keystore was generated with openssl because
+                // the dev host has no JDK, so keytool was never available.
+                storeType = "PKCS12"
                 storePassword = props?.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = props?.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
                 keyPassword = props?.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
@@ -67,8 +74,13 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Minification stays OFF until a build has actually been exercised on a
+            // device. R8 breaking Room/Retrofit/Gson reflection is a whole class of
+            // failure that only shows up at runtime, and burning a test round on it
+            // before the app has ever been seen running would tell us nothing about
+            // the app itself.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfigs.getByName("release").storeFile?.let { signingConfig = signingConfigs.getByName("release") }
         }

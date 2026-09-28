@@ -1,6 +1,9 @@
 package com.lumisound.android.bridge.api
 
 import com.lumisound.android.bridge.model.AddFavoriteRequest
+import com.lumisound.android.bridge.model.CreatePlaylistRequest
+import com.lumisound.android.bridge.model.PlaylistTrackRequest
+import com.lumisound.android.bridge.model.UpdatePlaylistRequest
 import com.lumisound.android.bridge.model.FavoriteDto
 import com.lumisound.android.bridge.model.HistoryEntryDto
 import com.lumisound.android.bridge.model.LogPlayRequest
@@ -41,6 +44,22 @@ interface LibraryDataApi {
 
     @GET("user/playlists/{id}")
     suspend fun playlist(@Path("id") id: String): PlaylistDto
+
+    @POST("user/playlists")
+    suspend fun createPlaylist(@Body body: CreatePlaylistRequest): PlaylistDto
+
+    @PUT("user/playlists/{id}")
+    suspend fun updatePlaylist(@Path("id") id: String, @Body body: UpdatePlaylistRequest): PlaylistDto
+
+    @DELETE("user/playlists/{id}")
+    suspend fun deletePlaylist(@Path("id") id: String)
+
+    /** Owner or an 'editor' collaborator only; a viewer gets a 403. */
+    @POST("user/playlists/{id}/tracks")
+    suspend fun addPlaylistTrack(@Path("id") id: String, @Body body: PlaylistTrackRequest)
+
+    @DELETE("user/playlists/{id}/tracks/{trackId}")
+    suspend fun removePlaylistTrack(@Path("id") id: String, @Path("trackId") trackId: String)
 
     /** Returns a bare array, newest first -- capped at 200 server-side. */
     @GET("user/history")

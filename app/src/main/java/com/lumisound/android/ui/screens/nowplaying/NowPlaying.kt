@@ -15,7 +15,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,7 +96,7 @@ fun MiniPlayer(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NowPlayingSheet(container: AppContainer, onDismiss: () -> Unit) {
+fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss: () -> Unit) {
     val state by container.player.state.collectAsStateWithLifecycle()
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -149,6 +154,58 @@ fun NowPlayingSheet(container: AppContainer, onDismiss: () -> Unit) {
                 IconButton(onClick = { container.player.next() }) {
                     Icon(Icons.Filled.SkipNext, contentDescription = "Next", modifier = Modifier.size(34.dp))
                 }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                IconButton(onClick = { container.player.setShuffle(!state.shuffleEnabled) }) {
+                    Icon(
+                        Icons.Filled.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (state.shuffleEnabled) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = container.player::cycleRepeatMode) {
+                    Icon(
+                        // REPEAT_MODE_ONE == 1, REPEAT_MODE_ALL == 2; the icon says which.
+                        if (state.repeatMode == 1) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (state.repeatMode != 0) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = {
+                    // Cycles the usual four; a slider for this is more precision than
+                    // anyone wants while listening.
+                    val next = when {
+                        state.speed < 0.9f -> 1.0f
+                        state.speed < 1.1f -> 1.25f
+                        state.speed < 1.3f -> 1.5f
+                        state.speed < 1.6f -> 0.75f
+                        else -> 1.0f
+                    }
+                    container.player.setSpeed(next)
+                }) {
+                    Icon(
+                        Icons.Filled.Speed,
+                        contentDescription = "Speed",
+                        tint = if (state.speed != 1f) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onOpenQueue) {
+                    Icon(Icons.Filled.QueueMusic, contentDescription = "Queue")
+                }
+            }
+            if (state.speed != 1f) {
+                Text("${state.speed}x", style = MaterialTheme.typography.labelSmall)
+            }
+            state.playbackError?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(20.dp))
         }

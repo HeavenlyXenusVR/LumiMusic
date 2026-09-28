@@ -14,7 +14,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import com.lumisound.android.bridge.BridgeConfig
 import com.lumisound.android.bridge.BridgeUrls
-import com.lumisound.android.data.db.CloudTrackEntity
+import com.lumisound.android.diagnostics.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +23,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** What the UI needs to render a mini player and a Now Playing screen. */
+data class QueueItem(
+    val index: Int,
+    val mediaId: String,
+    val title: String,
+    val artist: String,
+    val isCurrent: Boolean,
+)
+
 data class PlaybackUiState(
     val connected: Boolean = false,
     val title: String? = null,
@@ -33,6 +41,13 @@ data class PlaybackUiState(
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val hasQueue: Boolean = false,
+    val queueSize: Int = 0,
+    val queueIndex: Int = 0,
+    val shuffleEnabled: Boolean = false,
+    val repeatMode: Int = 0,
+    val speed: Float = 1f,
+    val isLocalSource: Boolean = false,
+    val playbackError: String? = null,
 )
 
 /**
@@ -55,6 +70,25 @@ class PlayerController(
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = publish()
+
+        /**
+         * A stream that dies is the failure mode with the least visible cause -- the
+         * track simply stops -- so it is logged with the error code and the track's own
+         * path, which is what tells a locked-file problem apart from a dead session.
+         */
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            val item = controller?.currentMediaItem
+            AppLogger.e(
+                "playback",
+                "player error ${error.errorCodeName}",
+                error,
+                mapOf(
+                    "mediaId" to item?.mediaId,
+                    "isLocked" to (item?.mediaMetadata?.extras?.getBoolean(EXTRA_IS_LOCKED) == true),
+                    "isLocal" to (item?.mediaMetadata?.extras?.getBoolean(EXTRA_IS_LOCAL) == true),
+                ),
+            )
+        }
     }
 
     fun connect() {
@@ -80,12 +114,90 @@ class PlayerController(
     }
 
     /** Plays [tracks] starting at [startIndex], replacing whatever queue exists. */
-    fun play(tracks: List<CloudTrackEntity>, startIndex: Int) {
+    fun play(tracks: List<PlayableTrack>, startIndex: Int) {
         val player = controller ?: return
         if (tracks.isEmpty()) return
-        player.setMediaItems(tracks.map { it.toMediaItem(config.baseUrl) }, startIndex, 0L)
+        player.setMediaItems(tracks.map { it.toMediaItem() }, startIndex.coerceIn(0, tracks.lastIndex), 0L)
         player.prepare()
         player.play()
+        AppLogger.i(
+            "playback",
+            "queue replaced",
+            mapOf("count" to tracks.size, "startIndex" to startIndex, "locked" to tracks.count { it.isLocked }),
+        )
+    }
+
+    /** Appends to the end of the current queue, starting playback if nothing is queued. */
+    fun enqueue(tracks: List<PlayableTrack>) {
+        val player = controller ?: return
+        if (tracks.isEmpty()) return
+        val wasEmpty = player.mediaItemCount == 0
+        player.addMediaItems(tracks.map { it.toMediaItem() })
+        if (wasEmpty) {
+            player.prepare()
+            player.play()
+        }
+    }
+
+    /** Inserts directly after whatever is playing. */
+    fun playNext(track: PlayableTrack) {
+        val player = controller ?: return
+        if (player.mediaItemCount == 0) {
+            play(listOf(track), 0)
+            return
+        }
+        player.addMediaItem(player.currentMediaItemIndex + 1, track.toMediaItem())
+    }
+
+    fun removeFromQueue(index: Int) {
+        val player = controller ?: return
+        if (index in 0 until player.mediaItemCount) player.removeMediaItem(index)
+    }
+
+    fun moveInQueue(from: Int, to: Int) {
+        val player = controller ?: return
+        if (from in 0 until player.mediaItemCount && to in 0 until player.mediaItemCount) {
+            player.moveMediaItem(from, to)
+        }
+    }
+
+    fun skipTo(index: Int) {
+        val player = controller ?: return
+        if (index in 0 until player.mediaItemCount) player.seekTo(index, 0L)
+    }
+
+    fun setShuffle(enabled: Boolean) {
+        controller?.shuffleModeEnabled = enabled
+    }
+
+    /** Cycles off -> all -> one, matching what the button shows. */
+    fun cycleRepeatMode() {
+        val player = controller ?: return
+        player.repeatMode = when (player.repeatMode) {
+            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+    }
+
+    /** 0.5x to 2.0x; pitch follows speed, as every other player on the platform does. */
+    fun setSpeed(speed: Float) {
+        controller?.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f))
+    }
+
+    /** The queue as the session currently holds it, for the Queue screen. */
+    fun queueSnapshot(): List<QueueItem> {
+        val player = controller ?: return emptyList()
+        return (0 until player.mediaItemCount).map { index ->
+            val item = player.getMediaItemAt(index)
+            QueueItem(
+                index = index,
+                mediaId = item.mediaId,
+                title = item.mediaMetadata.title?.toString() ?: "Unknown",
+                artist = item.mediaMetadata.artist?.toString().orEmpty(),
+                isCurrent = index == player.currentMediaItemIndex,
+            )
+        }
     }
 
     fun togglePlayPause() {
@@ -128,43 +240,19 @@ class PlayerController(
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = player.duration.takeIf { it > 0 } ?: 0,
             hasQueue = player.mediaItemCount > 0,
+            queueSize = player.mediaItemCount,
+            queueIndex = player.currentMediaItemIndex,
+            shuffleEnabled = player.shuffleModeEnabled,
+            repeatMode = player.repeatMode,
+            speed = player.playbackParameters.speed,
+            isLocalSource = metadata?.extras?.getBoolean(EXTRA_IS_LOCAL) == true,
+            playbackError = player.playerError?.let { "${it.errorCodeName}: ${it.message}" },
         )
     }
 
     private companion object {
         const val TAG = "LumiPlayer"
     }
-}
-
-/**
- * Cloud track -> playable item. The `serverPath` travels in the URL's `path`
- * query (which is also how the loudness gain and the locked-file handling find
- * their way back to the right track) and again in the metadata extras, so a
- * queue restored by the session can still be identified.
- */
-@OptIn(UnstableApi::class)
-fun CloudTrackEntity.toMediaItem(baseUrl: String): MediaItem {
-    val streamUrl = BridgeUrls.stream(baseUrl, serverPath, isLocked)
-    val artwork = if (hasArtwork) BridgeUrls.artwork(baseUrl, serverPath) else null
-    return MediaItem.Builder()
-        .setMediaId(serverPath)
-        .setUri(streamUrl)
-        .setMediaMetadata(
-            MediaMetadata.Builder()
-                .setTitle(title)
-                .setArtist(artist)
-                .setAlbumTitle(album)
-                .setGenre(genre)
-                .setArtworkUri(artwork?.let { android.net.Uri.parse(it) })
-                .setIsPlayable(true)
-                .setIsBrowsable(false)
-                .setExtras(Bundle().apply {
-                    putString(EXTRA_SERVER_PATH, serverPath)
-                    putBoolean(EXTRA_IS_LOCKED, isLocked)
-                })
-                .build()
-        )
-        .build()
 }
 
 const val EXTRA_SERVER_PATH = "lumi.serverPath"
