@@ -101,11 +101,13 @@ fun FallbackArt(key: String, modifier: Modifier = Modifier) {
 data class FallbackPalette(val hue: Float, val saturation: Float, val lightness: Float)
 
 fun fallbackPaletteFor(key: String): FallbackPalette {
+    // Both constants exceed Int.MAX_VALUE, so they are written unsigned and converted --
+    // as plain hex literals Kotlin types them Long and the multiplication will not compile.
     var x = key.hashCode()
     x = x xor (x ushr 16)
-    x *= 0x7feb352d
+    x *= 0x7feb352du.toInt()
     x = x xor (x ushr 15)
-    x *= 0x846ca68b
+    x *= 0x846ca68bu.toInt()
     x = x xor (x ushr 16)
     val mixed = x.toLong() and 0xFFFFFFFFL
     return FallbackPalette(
