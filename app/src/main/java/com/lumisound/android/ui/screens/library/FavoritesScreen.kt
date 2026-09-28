@@ -21,6 +21,7 @@ import com.lumisound.android.playback.toPlayable
 import com.lumisound.android.ui.components.EmptyState
 import com.lumisound.android.ui.components.Pill
 import com.lumisound.android.ui.components.TrackRow
+import com.lumisound.android.ui.components.trackSubtitle
 import kotlinx.coroutines.launch
 
 /**
@@ -58,8 +59,11 @@ fun FavoritesScreen(container: AppContainer) {
         items(favorites, key = { it.songId }) { favorite ->
             TrackRow(
                 title = favorite.title ?: favorite.songId.substringAfterLast('/'),
-                subtitle = listOfNotNull(favorite.artist?.takeIf { it.isNotBlank() }, favorite.album?.takeIf { it.isNotBlank() })
-                    .joinToString(" · ").ifBlank { "Unknown artist" },
+                subtitle = trackSubtitle(
+                    favorite.title ?: favorite.songId,
+                    favorite.artist,
+                    favorite.album,
+                ),
                 artworkModel = null,
                 fallbackKey = favorite.songId,
                 isPlaying = playback.serverPath == favorite.songId,

@@ -230,6 +230,8 @@ class PlayerController(
         }
         val item = player.currentMediaItem
         val metadata = item?.mediaMetadata
+        val knownDuration = metadata?.extras?.getLong(EXTRA_DURATION_MS) ?: 0L
+        val playerDuration = player.duration.takeIf { it > 0 } ?: 0L
         _state.value = PlaybackUiState(
             connected = true,
             title = metadata?.title?.toString(),
@@ -238,7 +240,7 @@ class PlayerController(
             serverPath = item?.localConfiguration?.uri?.getQueryParameter("path"),
             isPlaying = player.isPlaying,
             positionMs = player.currentPosition.coerceAtLeast(0),
-            durationMs = player.duration.takeIf { it > 0 } ?: 0,
+            durationMs = if (playerDuration > 0) playerDuration else knownDuration,
             hasQueue = player.mediaItemCount > 0,
             queueSize = player.mediaItemCount,
             queueIndex = player.currentMediaItemIndex,

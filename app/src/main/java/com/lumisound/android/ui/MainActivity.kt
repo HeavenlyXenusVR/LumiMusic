@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            val accent by container.cloudImport.importedAccent.collectAsStateWithLifecycle()
+            val accent by container.appearance.accent.collectAsStateWithLifecycle()
             LumiMusicTheme(accentHex = accent) {
                 LumiMusicRoot(container)
             }

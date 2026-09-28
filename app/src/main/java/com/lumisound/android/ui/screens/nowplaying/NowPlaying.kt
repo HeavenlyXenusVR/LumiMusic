@@ -53,7 +53,9 @@ import coil3.compose.AsyncImage
 import com.lumisound.android.AppContainer
 import com.lumisound.android.playback.PlaybackUiState
 import com.lumisound.android.ui.components.Artwork
+import com.lumisound.android.ui.components.FallbackArt
 import com.lumisound.android.ui.components.OneLine
+import com.lumisound.android.ui.components.trackSubtitle
 import com.lumisound.android.ui.theme.LocalLumiPalette
 
 /**
@@ -72,6 +74,7 @@ fun MiniPlayer(
         if (state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f,
         label = "miniProgress",
     )
+    val subtitle = trackSubtitle(state.title.orEmpty(), state.artist, null)
 
     Column(
         Modifier
@@ -101,7 +104,7 @@ fun MiniPlayer(
             Column(Modifier.weight(1f)) {
                 OneLine(state.title ?: "Nothing playing", style = MaterialTheme.typography.titleSmall)
                 OneLine(
-                    state.artist.orEmpty().ifBlank { "Unknown artist" },
+                    subtitle,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -138,19 +141,26 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
         dragHandle = null,
     ) {
         Box(Modifier.fillMaxWidth()) {
-            state.artworkUrl?.let { artwork ->
-                AsyncImage(
-                    model = artwork,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(420.dp)
-                        // Modifier.blur is a real RenderEffect from API 31 and a no-op below
-                        // it; the scrim underneath means the fallback still looks deliberate.
-                        .blur(48.dp)
-                        .clip(RoundedCornerShape(0.dp)),
+            // The backdrop uses whatever the row uses: real artwork when the track has it,
+            // otherwise the same generated gradient, so this screen always takes its colour
+            // from the track rather than falling back to a flat panel.
+            Box(Modifier.fillMaxWidth().height(420.dp)) {
+                FallbackArt(
+                    key = state.serverPath ?: state.title.orEmpty(),
+                    modifier = Modifier.fillMaxSize().blur(52.dp),
                 )
+                state.artworkUrl?.let { artwork ->
+                    AsyncImage(
+                        model = artwork,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            // Modifier.blur is a real RenderEffect from API 31 and a no-op
+                            // below it; the scrim below keeps both cases looking deliberate.
+                            .blur(52.dp),
+                    )
+                }
             }
             Box(
                 Modifier
@@ -197,16 +207,21 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                 )
                 Spacer(Modifier.height(4.dp))
                 OneLine(
-                    state.artist.orEmpty().ifBlank { "Unknown artist" },
+                    trackSubtitle(state.title.orEmpty(), state.artist, null),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 Spacer(Modifier.height(18.dp))
+                val known = state.durationMs > 0
                 val duration = state.durationMs.coerceAtLeast(1)
                 Slider(
-                    value = (state.positionMs.toFloat() / duration).coerceIn(0f, 1f),
+                    // An unknown duration shows an empty track rather than a full one: a bar
+                    // pinned to the end while the track is eleven seconds in says something
+                    // false about the track instead of admitting what is not known.
+                    value = if (known) (state.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f,
+                    enabled = known,
                     onValueChange = { container.player.seekTo((it * duration).toLong()) },
                     colors = SliderDefaults.colors(
                         thumbColor = palette.accent,
@@ -221,7 +236,7 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        state.durationMs.asClock(),
+                        if (known) state.durationMs.asClock() else "--:--",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

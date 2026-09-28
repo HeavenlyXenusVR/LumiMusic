@@ -140,7 +140,12 @@ fun SettingsScreen(
                         Text("  Import")
                     }
                     TextButton(
-                        onClick = { scope.launch { container.account.signOut() } },
+                        onClick = {
+                            scope.launch {
+                                container.account.signOut()
+                                container.appearance.clear()
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))

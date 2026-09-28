@@ -6,6 +6,7 @@ import com.lumisound.android.bridge.model.CloudTrackDto
 import com.lumisound.android.bridge.model.FavoriteDto
 import com.lumisound.android.bridge.model.HistoryEntryDto
 import com.lumisound.android.bridge.model.PlaylistDto
+import com.lumisound.android.data.AppearanceStore
 import com.lumisound.android.data.db.CloudTrackEntity
 import com.lumisound.android.data.db.FavoriteEntity
 import com.lumisound.android.data.db.LumiDatabase
@@ -64,6 +65,7 @@ data class ImportProgress(
 class CloudImportService(
     private val http: BridgeHttp,
     private val db: LumiDatabase,
+    private val appearance: AppearanceStore,
 ) {
 
     private val _progress = MutableStateFlow(ImportProgress())
@@ -149,17 +151,24 @@ class CloudImportService(
         val settings = http.libraryData.settings()
         val accent = settings.themeColor?.takeIf { it.startsWith("#") && (it.length == 7 || it.length == 9) }
         return if (accent != null) {
-            _importedAccent.value = accent
+            appearance.setAccent(accent)
             StageResult.Done(1, "accent $accent")
         } else {
             StageResult.Done(0, "no shared settings to apply")
         }
     }
 
-    private val _importedAccent = MutableStateFlow<String?>(null)
-
-    /** The account's `theme_color`, once an import has seen one. */
-    val importedAccent: StateFlow<String?> = _importedAccent.asStateFlow()
+    /**
+     * Pulls just the shared settings row. Called on launch so the account's accent is
+     * current without waiting for the user to run a full import.
+     */
+    suspend fun refreshAccent() {
+        try {
+            appearance.setAccent(http.libraryData.settings().themeColor)
+        } catch (e: Exception) {
+            // Keeping the stored colour is the right failure: it was correct last time.
+        }
+    }
 
     private fun mark(stage: ImportStage, result: StageResult) {
         _progress.value = _progress.value.copy(

@@ -32,6 +32,7 @@ import com.lumisound.android.ui.components.EmptyState
 import com.lumisound.android.ui.components.OneLine
 import com.lumisound.android.ui.components.Pill
 import com.lumisound.android.ui.components.TrackRow
+import com.lumisound.android.ui.components.trackSubtitle
 import com.lumisound.android.ui.theme.LocalLumiPalette
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -179,9 +180,12 @@ fun DeviceLibraryScreen(container: AppContainer) {
                     !granted ->
                         "LumiMusic needs permission to read audio files before it can scan this device."
                     scanState.hasNonMusicAudioOnly ->
-                        "${scanState.audioRowsSeen} audio files are on this device, but Android does not " +
-                            "classify any of them as music — ringtones, notifications and podcasts are " +
-                            "excluded. Your cloud library is unaffected."
+                        "${scanState.audioRowsSeen} audio file" +
+                            (if (scanState.audioRowsSeen == 1) " is" else "s are") +
+                            " on this device, but Android does not classify " +
+                            (if (scanState.audioRowsSeen == 1) "it" else "any of them") +
+                            " as music — ringtones, notifications and podcasts are excluded. " +
+                            "Your cloud library is unaffected."
                     else ->
                         "The scan looked at ${scanState.volumes.size} storage volume" +
                             (if (scanState.volumes.size == 1) "" else "s") +
@@ -224,10 +228,7 @@ fun DeviceLibraryScreen(container: AppContainer) {
             items(tracks, key = { it.contentUri }) { track ->
                 TrackRow(
                     title = track.title,
-                    subtitle = listOfNotNull(
-                        track.artist.takeIf { it.isNotBlank() },
-                        track.album.takeIf { it.isNotBlank() },
-                    ).joinToString(" · ").ifBlank { "Unknown artist" },
+                    subtitle = trackSubtitle(track.title, track.artist, track.album),
                     // MediaStore serves album art straight off the album id.
                     artworkModel = "content://media/external/audio/albumart/${track.albumId}",
                     fallbackKey = track.contentUri,

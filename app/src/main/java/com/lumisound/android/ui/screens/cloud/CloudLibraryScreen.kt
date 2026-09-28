@@ -46,6 +46,7 @@ import com.lumisound.android.ui.components.Pill
 import com.lumisound.android.ui.components.SectionHeader
 import com.lumisound.android.ui.components.ShelfCard
 import com.lumisound.android.ui.components.TrackRow
+import com.lumisound.android.ui.components.trackSubtitle
 import com.lumisound.android.ui.theme.LocalLumiPalette
 import kotlinx.coroutines.launch
 
@@ -158,7 +159,7 @@ fun CloudLibraryScreen(
                         items(recent, key = { it.serverPath }) { track ->
                             ShelfCard(
                                 title = track.title,
-                                subtitle = track.artist.ifBlank { "Unknown artist" },
+                                subtitle = trackSubtitle(track.title, track.artist, track.album),
                                 artworkModel = track.artworkModel(container.config.baseUrl),
                                 fallbackKey = track.serverPath,
                                 onClick = { play(recent, recent.indexOf(track)) },
@@ -175,10 +176,7 @@ fun CloudLibraryScreen(
             Box {
                 TrackRow(
                     title = track.title,
-                    subtitle = listOfNotNull(
-                        track.artist.takeIf { it.isNotBlank() },
-                        track.album.takeIf { it.isNotBlank() },
-                    ).joinToString(" · ").ifBlank { "Unknown artist" },
+                    subtitle = trackSubtitle(track.title, track.artist, track.album),
                     artworkModel = track.artworkModel(container.config.baseUrl),
                     fallbackKey = track.serverPath,
                     duration = track.durationSeconds.asClock(),

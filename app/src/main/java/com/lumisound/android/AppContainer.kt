@@ -9,6 +9,7 @@ import com.lumisound.android.bridge.BridgeHttp
 import com.lumisound.android.bridge.LoudnessGainStore
 import com.lumisound.android.bridge.TokenStore
 import com.lumisound.android.cloud.CloudImportService
+import com.lumisound.android.data.AppearanceStore
 import com.lumisound.android.data.db.LumiDatabase
 import com.lumisound.android.data.repo.LibraryRepository
 import com.lumisound.android.diagnostics.AppLogger
@@ -48,8 +49,9 @@ class AppContainer(private val context: Context) {
     val telemetry by lazy { TelemetryUploader(context, http, tokenStore, http.gson, scope) }
     val crashReporter by lazy { CrashReporter(context, telemetry) }
 
+    val appearance by lazy { AppearanceStore(context) }
     val account by lazy { AccountRepository(http, tokenStore) }
-    val cloudImport by lazy { CloudImportService(http, database) }
+    val cloudImport by lazy { CloudImportService(http, database, appearance) }
     val libraryRepository by lazy { LibraryRepository(http, database, remoteLogger) }
     val libraryScanner by lazy { LibraryScanner(context, database, remoteLogger) }
     val downloads by lazy { DownloadManager(context, http, config, database, remoteLogger, scope) }
@@ -94,7 +96,11 @@ class AppContainer(private val context: Context) {
         historyLogger.start()
         diagnostics.start()
 
-        scope.launch { account.restoreSession() }
+        scope.launch {
+            account.restoreSession()
+            // Only worth asking once there is a session to ask with.
+            if (account.isSignedIn) cloudImport.refreshAccent()
+        }
         scope.launch {
             // The equalizer can only bind once the player has a real session id.
             AudioSessionHolder.sessionId.collectLatest { id -> if (id != 0) equalizer.attach(id) }

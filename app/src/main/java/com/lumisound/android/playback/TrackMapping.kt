@@ -96,3 +96,4 @@ fun PlayableTrack.toMediaItem(): MediaItem = MediaItem.Builder()
     .build()
 
 const val EXTRA_IS_LOCAL = "lumi.isLocal"
+const val EXTRA_DURATION_MS = "lumi.durationMs"
