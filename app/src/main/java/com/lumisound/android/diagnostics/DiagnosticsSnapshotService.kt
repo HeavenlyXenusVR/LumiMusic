@@ -168,6 +168,7 @@ class DiagnosticsSnapshotService(
             // validated yet: the two differ during startup and after a network failure,
             // and conflating them hides which of those is happening.
             "tokenPresent" to (tokenStore.token != null),
+            "tokenPersistent" to tokenStore.isPersistent,
             "sessionResolved" to (state != AccountState.Unknown),
             "userId" to tokenStore.userId,
             "username" to (state as? AccountState.SignedIn)?.user?.username,

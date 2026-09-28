@@ -47,7 +47,14 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+// The stock Application, not this app's: LumiMusicApp.onCreate builds the whole
+// dependency graph -- encrypted storage, the player, the telemetry loop -- none of which
+// a screenshot needs and none of which exists on the JVM.
+@Config(
+    sdk = [34],
+    application = android.app.Application::class,
+    qualifiers = "w411dp-h891dp-xxhdpi",
+)
 class ComponentGalleryTest {
 
     private fun capture(name: String, content: @Composable () -> Unit) {
