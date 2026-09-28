@@ -47,6 +47,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -174,37 +176,37 @@ fun NowPlayingContent(
     val palette = LocalLumiPalette.current
     run {
         Box(Modifier.fillMaxWidth()) {
-            // The backdrop uses whatever the row uses: real artwork when the track has it,
-            // otherwise the same generated gradient, so this screen always takes its colour
-            // from the track rather than falling back to a flat panel.
-            Box(Modifier.fillMaxWidth().height(420.dp)) {
+            // The backdrop uses whatever the row uses -- real artwork when the track has it,
+            // otherwise the same generated gradient -- so this screen always takes its colour
+            // from the track. It matches the content's own height rather than a fixed block,
+            // which previously ended in a hard horizontal edge partway down the sheet.
+            Box(Modifier.matchParentSize()) {
                 FallbackArt(
                     key = state.serverPath ?: state.title.orEmpty(),
-                    modifier = Modifier.fillMaxSize().blur(52.dp),
+                    modifier = Modifier.fillMaxSize().blur(60.dp),
                 )
                 state.artworkUrl?.let { artwork ->
                     AsyncImage(
                         model = artwork,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            // Modifier.blur is a real RenderEffect from API 31 and a no-op
-                            // below it; the scrim below keeps both cases looking deliberate.
-                            .blur(52.dp),
+                        // Modifier.blur is a real RenderEffect from API 31 and a no-op below
+                        // it; the scrim over the top keeps both cases looking deliberate.
+                        modifier = Modifier.fillMaxSize().blur(60.dp),
                     )
                 }
-            }
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(420.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Black.copy(alpha = 0.35f), palette.pageBottom)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Black.copy(alpha = 0.30f),
+                                0.45f to palette.pageBottom.copy(alpha = 0.86f),
+                                1f to palette.pageBottom,
+                            )
                         )
-                    )
-            )
+                )
+            }
 
             Column(
                 Modifier
@@ -227,22 +229,28 @@ fun NowPlayingContent(
                 Artwork(
                     model = state.artworkUrl,
                     fallbackKey = state.serverPath ?: state.title.orEmpty(),
-                    size = 268.dp,
+                    size = 232.dp,
                     corner = 20.dp,
                     modifier = Modifier.aspectRatio(1f),
                 )
 
-                Spacer(Modifier.height(26.dp))
-                OneLine(
+                Spacer(Modifier.height(22.dp))
+                Text(
                     state.title ?: "Nothing playing",
                     style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(4.dp))
-                OneLine(
+                Text(
                     trackSubtitle(state.title.orEmpty(), state.artist, null),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
