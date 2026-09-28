@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Sign-in, registration and the 2FA continuation, all against the bridge's own
- * `/auth/*` routes -- so an account made in Lumisound signs in here directly and
+ * `/auth` routes -- so an account made in Lumisound signs in here directly and
  * an account made here works in Lumisound. There is no linking step and no
  * LumiMusic-specific account.
  */

@@ -7,7 +7,7 @@ import retrofit2.http.Query
 
 /**
  * The signed-in user's personal cloud music library -- the same
- * `/user/music/*` family Lumisound uploads to and streams from, so a track
+ * `/user/music` endpoint family Lumisound uploads to and streams from, so a track
  * uploaded from an iPhone shows up here with no migration step at all.
  *
  * Streaming and artwork are deliberately NOT modeled as Retrofit calls: both

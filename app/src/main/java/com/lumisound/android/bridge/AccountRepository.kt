@@ -27,7 +27,7 @@ sealed interface SignInResult {
 
 /**
  * Sign-in, session persistence and the account row -- against the same
- * `/auth/*` routes Lumisound uses, so the credentials a user already has work
+ * `/auth` routes Lumisound uses, so the credentials a user already has work
  * here with no migration or linking step.
  */
 class AccountRepository(
