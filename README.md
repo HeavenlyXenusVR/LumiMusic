@@ -22,7 +22,9 @@ same per-user cloud storage, so:
 
 Milestones 1 and 2 are built: account + cloud import + cloud playback, the device's own
 library, queue/shuffle/repeat/speed, offline downloads, favorites and playlist editing,
-the equalizer, and a full diagnostics/telemetry stack. Signed APKs are attached to every
+the equalizer, and a full diagnostics/telemetry stack. The UI follows Lumisound's own visual
+language, built from its `AppTheme` tokens rather than approximated — see the visual design
+section of the roadmap for what is matched and what is not. Signed APKs are attached to every
 tagged release. See
 [docs/ROADMAP.md](docs/ROADMAP.md) for what is built, what is deliberately out of scope,
 and what comes next.

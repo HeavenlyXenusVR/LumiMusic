@@ -54,6 +54,73 @@ Screens are split into a stateless `…Content` composable plus a thin container
 wrapper so the awkward states -- unknown duration, playback error, empty library -- can be
 rendered in four lines each rather than reproduced by hand on a phone.
 
+## Visual design (v0.3.0 – v0.4.0)
+
+The app is built to Lumisound's own visual language, not an approximation of it. The tokens
+come from `ios/Lumisound/Sources/Theme/AppTheme.swift` directly: accent `#EC4079`
+(`Color(red: 0.925, green: 0.251, blue: 0.478)`), text `#F7FAFC` / `#CBD5E0`, deep navy
+surfaces. An account's own `theme_color` overrides the accent, so a user whose Lumisound
+accent is cyan gets cyan here too.
+
+### Matched
+
+| Piece | Notes |
+|---|---|
+| Capsule toolbar | A floating pill of icon actions above each screen's title, so the large title below is the actual heading rather than a navigation bar. |
+| Screen chrome | Large titles, rounded filled search fields, and a scrolling chip row of views (All / Recently added / Offline / Favorites; Songs / Artists / Albums / Folders). |
+| Section headers | A tinted icon tile beside each heading plus an optional *See All*, with per-section colours rather than the accent everywhere -- most of what makes a long screen read as sections instead of one list. |
+| Generated covers | A bright orb over a darker field, replacing the flat two-stop gradient. See below. |
+| Mini player | A rounded floating card with its own progress line, a favourite toggle, and one filled circular play button; everything else on the bar is an outline. |
+| Playlists | A four-up collage, since a playlist is a group of things and one cover standing in for all of them says less. |
+| Now Playing | Artwork used twice -- blurred as a full-height backdrop that fades into the page, sharp in the middle -- so the screen takes its colour from the track. |
+
+### Dark only, for now
+
+`LumiMusicTheme` forces dark. The light palette exists in the code but has never been looked
+at on a real screen, and shipping a half-designed second surface to whoever happens to have
+light mode on is worse than one surface that was actually designed. It needs its own pass.
+
+### The cover palette, measured rather than guessed
+
+Almost nothing in a real cloud library has embedded artwork, so generated covers are the only
+thing distinguishing most rows. Getting them right took three passes, and the middle one is
+the instructive part:
+
+1. **Hue from `hashCode() % 360`.** Looked fine in code, wrong on screen: Java's string hash
+   puts near-identical keys next to each other, so `Title 1` and `Title 2` -- or any folder of
+   sequential tracks, which is most of this library -- came out the same colour. A whole shelf
+   rendered in one green.
+2. **Mixed hash across the full wheel.** Fixed the collisions and introduced a new problem: a
+   third of the colour wheel is olive and khaki, which no cover in Lumisound's artwork uses.
+3. **Ten vivid bands** (magenta, violet, blue, cyan, amber, coral) with the hue placed inside
+   one. Fixed the muddiness, and made same-band collisions common again.
+
+Rather than guess a fourth time, the function was modelled in Python and measured over a
+360-key library. The parameters that were in the code put near-identical pairs at **12.9%**;
+the ones that shipped bring that to about **5.5%**, with no two neighbouring tracks colliding.
+Both numbers are asserted in `FallbackPaletteTest`, measured on the colour that actually
+reaches the eye -- the bright orb weighted over its darker field -- rather than on hue.
+
+Hue was the wrong property to assert, and the test that did so failed a change that made the
+covers better. That is worth remembering: assert what the user sees.
+
+**The honest limit:** ten bands cannot guarantee that *any* two keys differ -- single-character
+keys can still land close together. Widening the bands until they could would put covers back
+in the olive band this approach exists to avoid. Rare collisions across thousands of tracks is
+a deliberate trade, not an oversight.
+
+### Not matched yet
+
+- Album and playlist detail pages: the big header with stat capsules (`9 songs`, `3 albums`,
+  `33m 12s`), Play / Shuffle, track-order control and list/grid/compact view toggles
+- The seven-item tab bar with its own per-section icons (Library, Playing, Queue, Cloud
+  Services, Friends, Profile, Settings) and the Navbar Mode setting that swaps it for a
+  full-width mini player
+- Now Playing's visualizer and scrubber style chips (Kaleidoscope Bloom, Synthwave Horizon,
+  Equalizer Cutout; Waveform / Classic / Ring / Bars / Digital)
+- Customize Home: custom greeting, home accent colour, per-section toggles and reordering
+- The light theme
+
 ## Verification status — read this before trusting the table above
 
 Everything in milestone 1 **compiles, passes unit tests and passes lint in CI** on every
