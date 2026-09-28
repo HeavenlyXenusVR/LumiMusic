@@ -26,8 +26,16 @@ jobs:
           LUMI_BRIDGE_API_KEY: ${{ secrets.LUMI_BRIDGE_API_KEY }}
         run: ./gradlew --no-daemon assembleDebug
 
-      - name: Unit tests
+      - name: Unit tests and screenshots
         run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Upload rendered screens
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: app/build/outputs/roborazzi/*.png
+          if-no-files-found: warn
 
       - name: Lint
         run: ./gradlew --no-daemon lintDebug
