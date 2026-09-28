@@ -1,10 +1,11 @@
 [versions]
 agp = "9.4.1"
 # AGP 9 brings its own Kotlin Gradle plugin, so kotlin-android is not applied at
-# all. The Compose compiler plugin and KSP still are, and both have to match that
-# bundled KGP version exactly.
-kotlin = "2.2.10"
-ksp = "2.2.10-2.0.2"
+# all -- but the version it bundles (2.2.10) cannot read the 2.4 metadata that
+# Room/Media3/Compose now ship, so KGP is overridden to 2.4.20 in the root build
+# file and everything Kotlin-side is pinned to match it.
+kotlin = "2.4.20"
+ksp = "2.3.12"
 coroutines = "1.10.2"
 composeBom = "2026.09.00"
 activityCompose = "1.12.0"
@@ -60,6 +61,7 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 
 junit = { module = "junit:junit", version = "4.13.2" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
