@@ -108,6 +108,23 @@ private fun noteArtworkFailure(model: Any?) {
  * further slices of the mixed value vary saturation and lightness so neighbours differ by
  * more than hue alone.
  */
+/**
+ * The hue bands generated covers are allowed to use.
+ *
+ * A uniform 0-360 spread looked right in code and muddy on screen: a third of the wheel is
+ * olive and khaki, which is not a colour any cover in Lumisound's artwork language uses.
+ * Picking a band first and placing the hue inside it keeps every generated cover in the
+ * magenta / violet / blue / cyan / amber family the real artwork lives in.
+ */
+private val HUE_BANDS = listOf(
+    300f to 348f,   // magenta into pink
+    252f to 292f,   // violet
+    202f to 244f,   // blue
+    166f to 196f,   // cyan and teal
+    18f to 44f,     // amber into orange
+    350f to 372f,   // coral, wrapping past red
+)
+
 data class FallbackPalette(val hue: Float, val saturation: Float, val lightness: Float)
 
 fun fallbackPaletteFor(key: String): FallbackPalette {
