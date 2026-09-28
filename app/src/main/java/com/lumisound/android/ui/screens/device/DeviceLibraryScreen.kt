@@ -26,9 +26,16 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import com.lumisound.android.ui.components.ChipRow
 import com.lumisound.android.ui.components.EmptyState
+import com.lumisound.android.ui.components.NavChip
+import com.lumisound.android.ui.components.SearchField
 import com.lumisound.android.ui.components.OneLine
 import com.lumisound.android.ui.components.Pill
 import com.lumisound.android.ui.components.TrackRow
@@ -124,32 +131,23 @@ fun DeviceLibraryScreen(container: AppContainer) {
             }
         }
 
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Grouping.entries.forEach { entry ->
-                FilterChip(
+        ChipRow(
+            Grouping.entries.map { entry ->
+                NavChip(
+                    label = entry.label,
+                    icon = when (entry) {
+                        Grouping.Songs -> Icons.Filled.MusicNote
+                        Grouping.Artists -> Icons.Filled.Person
+                        Grouping.Albums -> Icons.Filled.Album
+                        Grouping.Folders -> Icons.Filled.Folder
+                    },
                     selected = grouping == entry,
                     onClick = { grouping = entry; openGroup = null },
-                    label = { Text(entry.label) },
                 )
             }
-        }
-
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("Search this device") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-            singleLine = true,
-            shape = MaterialTheme.shapes.large,
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = palette.hairline,
-                focusedBorderColor = palette.accent,
-            ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
+
+        SearchField(query, { query = it }, "Search this device")
 
         if (scanState.running && tracks.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

@@ -157,10 +157,12 @@ fun PlaylistsScreen(container: AppContainer) {
                             .padding(start = 16.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        com.lumisound.android.ui.components.Artwork(
-                            model = null,
-                            fallbackKey = playlist.id,
-                            size = 48.dp,
+                        // Four covers in one tile: a playlist is a group of things, and one
+                        // cover standing in for all of them says less than a collage does.
+                        com.lumisound.android.ui.components.CollageArt(
+                            keys = listOf(playlist.id, playlist.name, "${playlist.id}-2", "${playlist.name}-3"),
+                            size = 52.dp,
+                            corner = 12.dp,
                         )
                         Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {

@@ -19,7 +19,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumisound.android.AppContainer
 import com.lumisound.android.playback.toPlayable
 import com.lumisound.android.ui.components.EmptyState
-import com.lumisound.android.ui.components.Pill
+import androidx.compose.material.icons.filled.Favorite
+import com.lumisound.android.ui.components.IconSectionHeader
+import com.lumisound.android.ui.components.ScreenTitle
+import com.lumisound.android.ui.theme.SectionTint
 import com.lumisound.android.ui.components.TrackRow
 import com.lumisound.android.ui.components.trackSubtitle
 import kotlinx.coroutines.launch
@@ -51,10 +54,14 @@ fun FavoritesScreen(container: AppContainer) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            Column(Modifier.padding(start = 20.dp, top = 12.dp, bottom = 10.dp)) {
-                Text("Favorites", style = MaterialTheme.typography.displaySmall)
-                Pill("${favorites.size} saved")
-            }
+            ScreenTitle("Favorites", subtitle = "${favorites.size} saved · shared with Lumisound")
+        }
+        item {
+            IconSectionHeader(
+                Icons.Filled.Favorite,
+                "Saved tracks",
+                tint = SectionTint.Favorites,
+            )
         }
         items(favorites, key = { it.songId }) { favorite ->
             TrackRow(
