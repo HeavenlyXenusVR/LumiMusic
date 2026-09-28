@@ -7,10 +7,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- READ_MEDIA_AUDIO only exists from API 33. On 30-32 the audio library is
+    <!-- READ_MEDIA_AUDIO only exists from API 33. Below that the audio library is
          behind READ_EXTERNAL_STORAGE, and requesting a permission the platform has
-         never heard of is silently denied -- which is exactly how a scan comes back
-         with zero tracks and no error. -->
+         never heard of is silently denied, which is exactly how a scan comes back
+         with zero tracks and no error at all. -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
