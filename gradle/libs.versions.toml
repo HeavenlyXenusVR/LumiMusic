@@ -1,8 +1,9 @@
 [versions]
 agp = "9.4.1"
-# AGP 9 brings its own Kotlin Gradle plugin (2.2.10) -- the kotlin-android and
-# compose compiler plugins are no longer applied at all, so the only Kotlin-side
-# version left to pin is KSP's, which must match that bundled KGP.
+# AGP 9 brings its own Kotlin Gradle plugin, so kotlin-android is not applied at
+# all. The Compose compiler plugin and KSP still are, and both have to match that
+# bundled KGP version exactly.
+kotlin = "2.2.10"
 ksp = "2.2.10-2.0.2"
 coroutines = "1.10.2"
 composeBom = "2026.09.00"
@@ -62,4 +63,5 @@ junit = { module = "junit:junit", version = "4.13.2" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

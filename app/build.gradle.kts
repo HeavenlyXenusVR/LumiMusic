@@ -1,9 +1,11 @@
 import java.util.Properties
 
 plugins {
-    // No kotlin-android / compose-compiler plugin: AGP 9 compiles Kotlin and
-    // Compose itself, and applying either one on top is a hard error.
+    // No kotlin-android plugin: AGP 9 compiles Kotlin itself and rejects it. The
+    // Compose compiler plugin is still required (and pinned to the KGP version
+    // AGP bundles), as is KSP.
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
 
