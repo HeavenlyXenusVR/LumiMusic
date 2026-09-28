@@ -32,6 +32,19 @@ modeled.
 - **Local on-device library.** LumiMusic is cloud-first in this milestone. A MediaStore
   scanner is milestone 2.
 
+## Verification status — read this before trusting the table above
+
+Everything in milestone 1 **compiles, passes unit tests and passes lint in CI** on every
+push, and the `.lms` lock transform is verified byte-for-byte against the bridge's own
+`locked_media._unmask_into` across random seeks and key-phase boundaries (six unit tests
+cover it going forward). The bridge's auth error shape (`{"detail": "..."}`) and its 401 on a
+bad token — the signal the app uses to tell a revoked session from a network blip — were
+confirmed against the live server.
+
+**Not yet verified:** the app has never been run on a device or emulator. No sign-in, import
+or playback has been exercised against a real account. Everything about runtime behaviour is
+"should work", not "seen working" — the first device run is the next verification step.
+
 ## Milestone 2 — the local library and the player proper (next)
 
 - MediaStore/SAF library scan, folders, artists, albums, genres

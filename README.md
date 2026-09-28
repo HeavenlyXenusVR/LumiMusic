@@ -20,7 +20,8 @@ same per-user cloud storage, so:
 
 ## Status
 
-Milestone 1 (account + cloud import + cloud playback) is what exists today. See
+Milestone 1 (account + cloud import + cloud playback) is what exists today. It builds,
+unit-tests and lints green in CI, but has **not yet been run on a device** — see
 [docs/ROADMAP.md](docs/ROADMAP.md) for what is built, what is deliberately out of scope,
 and what comes next.
 
