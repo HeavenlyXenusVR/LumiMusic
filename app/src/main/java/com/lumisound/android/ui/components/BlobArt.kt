@@ -88,6 +88,45 @@ fun CollageArt(keys: List<String>, size: Dp, modifier: Modifier = Modifier, corn
     }
 }
 
+/**
+ * A cover's colours as plain HSL numbers, so the same values the canvas draws can be
+ * measured directly without standing up the UI stack.
+ */
+data class CoverSpec(
+    val fieldHue: Float,
+    val fieldSaturation: Float,
+    val fieldLightness: Float,
+    val orbHue: Float,
+    val orbSaturation: Float,
+    val orbLightness: Float,
+    val centerX: Float,
+    val centerY: Float,
+    val radius: Float,
+)
+
+fun coverSpecFor(key: String): CoverSpec {
+    val palette = fallbackPaletteFor(key)
+    var x = (key.hashCode() * 31 + key.length)
+    x = x xor (x ushr 13)
+    x *= 0x5bd1e995u.toInt()
+    x = x xor (x ushr 15)
+    val mixed = x.toLong() and 0xFFFFFFFFL
+    return CoverSpec(
+        fieldHue = palette.hue,
+        fieldSaturation = palette.saturation,
+        fieldLightness = palette.lightness,
+        // The orb roams a good way around the wheel from its field rather than being a
+        // brighter copy of it -- that offset is most of what separates two covers whose
+        // fields happen to land in the same band.
+        orbHue = (palette.hue + 10f + (mixed % 160L)) % 360f,
+        orbSaturation = (palette.saturation + 0.24f).coerceAtMost(0.95f),
+        orbLightness = 0.56f + ((mixed shr 7) % 30L) / 100f,
+        centerX = 0.32f + ((mixed shr 5) % 36L) / 100f,
+        centerY = 0.30f + ((mixed shr 11) % 40L) / 100f,
+        radius = 0.38f + ((mixed shr 19) % 18L) / 100f,
+    )
+}
+
 private data class BlobSpec(
     val fieldTop: Color,
     val fieldBottom: Color,
@@ -99,25 +138,18 @@ private data class BlobSpec(
 )
 
 private fun blobSpecFor(key: String, palette: FallbackPalette): BlobSpec {
-    // A second, independent mix so position and size do not track the colour: two tracks
-    // with similar hues should still differ in where their orb sits.
-    var x = (key.hashCode() * 31 + key.length)
-    x = x xor (x ushr 13)
-    x *= 0x5bd1e995u.toInt()
-    x = x xor (x ushr 15)
-    val mixed = x.toLong() and 0xFFFFFFFFL
-
-    val hue = palette.hue
-    // The orb sits a little around the wheel from its field, the way a lit subject picks up
-    // a neighbouring colour rather than being a brighter copy of the background.
-    val orbHue = (hue + 12f + (mixed % 30L)) % 360f
+    val spec = coverSpecFor(key)
     return BlobSpec(
-        fieldTop = Color.hsl(hue, palette.saturation, palette.lightness + 0.10f),
-        fieldBottom = Color.hsl((hue + 22f) % 360f, palette.saturation, (palette.lightness - 0.08f).coerceAtLeast(0.07f)),
-        orb = Color.hsl(orbHue, (palette.saturation + 0.26f).coerceAtMost(0.95f), 0.66f),
-        highlight = Color.hsl(orbHue, 0.62f, 0.86f),
-        centerX = 0.32f + ((mixed shr 5) % 36L) / 100f,
-        centerY = 0.30f + ((mixed shr 11) % 40L) / 100f,
-        radius = 0.38f + ((mixed shr 19) % 18L) / 100f,
+        fieldTop = Color.hsl(spec.fieldHue, spec.fieldSaturation, spec.fieldLightness + 0.06f),
+        fieldBottom = Color.hsl(
+            (spec.fieldHue + 22f) % 360f,
+            spec.fieldSaturation,
+            (spec.fieldLightness - 0.06f).coerceAtLeast(0.07f),
+        ),
+        orb = Color.hsl(spec.orbHue, spec.orbSaturation, spec.orbLightness),
+        highlight = Color.hsl(spec.orbHue, 0.62f, (spec.orbLightness + 0.20f).coerceAtMost(0.92f)),
+        centerX = spec.centerX,
+        centerY = spec.centerY,
+        radius = spec.radius,
     )
 }
