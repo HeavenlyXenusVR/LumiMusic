@@ -3,6 +3,8 @@ package com.lumisound.android.ui.screens.nowplaying
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,7 +164,13 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
             )
 
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 26.dp, vertical = 18.dp),
+                Modifier
+                    .fillMaxWidth()
+                    // Scrollable on purpose: artwork plus transport plus the secondary row
+                    // is taller than a short screen, and a control that cannot be reached
+                    // is worse than one that needs a nudge.
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 26.dp, vertical = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(
