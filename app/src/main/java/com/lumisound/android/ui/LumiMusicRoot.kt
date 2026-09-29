@@ -1,5 +1,11 @@
 package com.lumisound.android.ui
 
+import com.lumisound.android.ui.screens.settings.GalleryBackgroundScreen
+import com.lumisound.android.ui.gallery.GalleryBackdrop
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -111,8 +117,22 @@ private fun SignedInShell(container: AppContainer) {
         idle = Aura.forAccent(palette.accent),
     )
 
+    // The gallery background is imported from Lumisound on iPhone: pulled on every return
+    // to the foreground, so a photo added there appears here the next time the app opens.
+    val gallery by container.gallery.state.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { container.gallery.syncIfStale() }
+    }
+
     CompositionLocalProvider(LocalAura provides aura) {
-        AuraBackdrop(aura, Modifier.fillMaxSize()) {
+        AuraBackdrop(
+            aura,
+            Modifier.fillMaxSize(),
+            // Over a photo the glows only tint it; at full strength they would wash it out.
+            intensity = if (gallery.showing) 0.55f else 1f,
+            backdrop = { GalleryBackdrop(gallery.photos, gallery.settings) },
+        ) {
             Scaffold(
                 containerColor = Color.Transparent,
                 modifier = Modifier.fillMaxSize(),
@@ -206,6 +226,7 @@ private fun Screen(
             LibrarySection.Podcasts -> PodcastsScreen(container, onOpen = push, onBack = pop)
         }
         Route.Equalizer -> EqualizerScreen(container, onBack = pop)
+        Route.GalleryBackground -> GalleryBackgroundScreen(container, onBack = pop)
         Route.Downloads -> DownloadsScreen(container, onBack = pop)
         Route.Diagnostics -> DiagnosticsScreen(container, onBack = pop)
         Route.Stats -> StatsScreen(container, onBack = pop)

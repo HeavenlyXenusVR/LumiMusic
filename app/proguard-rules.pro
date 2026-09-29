@@ -6,3 +6,6 @@
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn retrofit2.**
+# The gallery store persists its settings and photo list through Gson too.
+-keep class com.lumisound.android.gallery.GalleryPhoto { *; }
+-keep class com.lumisound.android.gallery.GalleryBackgroundStore$StoredSettings { *; }

@@ -7,6 +7,7 @@ import com.lumisound.android.bridge.api.AuthApi
 import com.lumisound.android.bridge.api.CloudMusicApi
 import com.lumisound.android.bridge.api.DiagnosticsApi
 import com.lumisound.android.bridge.api.DiscoveryApi
+import com.lumisound.android.bridge.api.GalleryApi
 import com.lumisound.android.bridge.api.LibraryDataApi
 import com.lumisound.android.bridge.api.PodcastApi
 import com.lumisound.android.bridge.api.SocialApi
@@ -95,6 +96,7 @@ class BridgeHttp(
     val discovery: DiscoveryApi get() = current().create(DiscoveryApi::class.java)
     val social: SocialApi get() = current().create(SocialApi::class.java)
     val podcasts: PodcastApi get() = current().create(PodcastApi::class.java)
+    val gallery: GalleryApi get() = current().create(GalleryApi::class.java)
 }
 
 /**

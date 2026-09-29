@@ -140,6 +140,28 @@ Every screen was rebuilt, not restyled. The ideas, in the order they matter:
 
 Every screen has a stateless `…Content` composable and a render in `ScreenRenderTest`.
 
+## Gallery background from Lumisound (v0.7.0)
+
+The photos Lumisound on iPhone backs up for its Gallery Background now appear behind
+every screen here too, with the same look.
+
+- **Import.** `GET /user/gallery/images` lists the account's photos; each loads from
+  `/user/gallery/images/{id}` through the shared OkHttp client, which adds the session
+  token for the bridge host only. The list is pulled at launch and on every return to the
+  foreground (at most once a minute). New photos are prefetched into Coil's disk cache,
+  and the last list is kept on disk, so the background is up at once and offline.
+- **Apply.** Opacity, blur (0–40), interval, the twelve transitions and Ken Burns come
+  from the read-only `GET /user/sync` (`bg_*` columns plus `extra_settings_json`). If the
+  iPhone's source is Sonic Wallpaper or Reactive Aura, no photos are shown. "Match my
+  iPhone" follows those settings; changing any of them here gives this phone its own copy.
+- **Rendering.** `GalleryBackdrop` sits between the aura's base and its glows, which drop
+  to 55% so they tint the photo rather than wash it out. Blur needs Android 12.
+- **Read-only by design.** No upload or delete. Lumisound reconciles the cloud gallery by
+  count, not id: when a photo is removed on the iPhone, it deletes whichever cloud entries
+  sit past its local count, so a photo added from Android would be the one deleted.
+  `POST /user/sync` is avoided for the reason given in `LibraryDataApi`.
+- Sign-out clears the list and settings.
+
 ## Verification status — read this before trusting the table above
 
 Everything in milestone 1 **compiles, passes unit tests and passes lint in CI** on every

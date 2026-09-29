@@ -1,5 +1,6 @@
 package com.lumisound.android
 
+import com.lumisound.android.gallery.GalleryBackgroundStore
 import android.content.Context
 import com.lumisound.android.audio.AudioSessionHolder
 import com.lumisound.android.audio.EqualizerController
@@ -64,6 +65,7 @@ class AppContainer(private val context: Context) {
     val lyrics by lazy { LyricsRepository(http) }
     val searchHistory by lazy { SearchHistoryStore(context) }
     val presence by lazy { PresenceService(http, tokenStore, player, scope) }
+    val gallery by lazy { GalleryBackgroundStore(context, http, config, tokenStore, http.gson) }
 
     val diagnostics by lazy {
         DiagnosticsSnapshotService(
@@ -108,7 +110,10 @@ class AppContainer(private val context: Context) {
         scope.launch {
             account.restoreSession()
             // Only worth asking once there is a session to ask with.
-            if (account.isSignedIn) cloudImport.refreshAccent()
+            if (account.isSignedIn) {
+                cloudImport.refreshAccent()
+                gallery.sync()
+            }
         }
         scope.launch {
             // The equalizer can only bind once the player has a real session id.
