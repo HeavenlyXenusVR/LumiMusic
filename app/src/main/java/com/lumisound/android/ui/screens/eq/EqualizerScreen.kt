@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,7 +43,6 @@ import com.lumisound.android.AppContainer
 import com.lumisound.android.audio.EqState
 import com.lumisound.android.ui.components.ChipRow
 import com.lumisound.android.ui.components.EmptyState
-import com.lumisound.android.ui.components.GlassButton
 import com.lumisound.android.ui.components.GlassPanel
 import com.lumisound.android.ui.components.IconSectionHeader
 import com.lumisound.android.ui.components.NavChip
@@ -109,20 +107,19 @@ fun EqualizerContent(
             return@Column
         }
 
-        if (state.presets.isNotEmpty()) {
-            ChipRow(
-                state.presets.mapIndexed { index, preset ->
-                    NavChip(preset, Icons.Filled.Tune, selected = state.currentPreset == index, onClick = { onPreset(index) })
+        // Flat leads the presets and is the only reset: many devices also ship a preset named
+        // "Flat", which is dropped so the row never offers it twice.
+        val isFlat = state.bands.all { it.levelMillibel == 0 }
+        ChipRow(
+            listOf(NavChip("Flat", Icons.Filled.RestartAlt, selected = isFlat, onClick = onReset)) +
+                state.presets.mapIndexedNotNull { index, preset ->
+                    if (preset.trim().equals("flat", ignoreCase = true)) return@mapIndexedNotNull null
+                    NavChip(preset, Icons.Filled.Tune, selected = !isFlat && state.currentPreset == index, onClick = { onPreset(index) })
                 }
-            )
-        }
+        )
 
         GlassPanel {
             MixingDesk(state, onBand, dimmed = !state.enabled)
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                GlassButton("Flat", Icons.Filled.RestartAlt, onClick = onReset)
-            }
         }
 
         IconSectionHeader(Icons.Filled.GraphicEq, "Extra gain")
