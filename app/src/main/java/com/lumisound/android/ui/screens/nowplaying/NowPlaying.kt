@@ -14,13 +14,19 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -31,6 +37,9 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,7 +50,13 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -55,6 +70,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.lumisound.android.AppContainer
+import com.lumisound.android.lyrics.LrcParser
+import com.lumisound.android.lyrics.LyricsResult
 import com.lumisound.android.playback.PlaybackUiState
 import com.lumisound.android.ui.components.Artwork
 import com.lumisound.android.ui.components.FallbackArt
@@ -167,6 +184,15 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
     val state by container.player.state.collectAsStateWithLifecycle()
     val palette = LocalLumiPalette.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showLyrics by rememberSaveable { mutableStateOf(false) }
+    val title = state.title
+    // Only fetched once the panel is open, and never for an episode -- podcasts have none.
+    val lyrics by produceState<LyricsResult?>(null, title, state.artist, showLyrics) {
+        value = null
+        if (showLyrics && title != null && state.podcastFeedUrl == null) {
+            value = container.lyrics.lyricsFor(title, state.artist, state.durationMs)
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -184,9 +210,23 @@ fun NowPlayingSheet(container: AppContainer, onOpenQueue: () -> Unit, onDismiss:
             onRepeat = container.player::cycleRepeatMode,
             onSpeed = { container.player.setSpeed(it) },
             onOpenQueue = onOpenQueue,
+            showLyrics = showLyrics,
+            lyrics = lyrics,
+            onToggleLyrics = { showLyrics = !showLyrics },
+            onSleepTimer = { choice ->
+                when (choice) {
+                    null -> container.player.cancelSleepTimer()
+                    SLEEP_END_OF_TRACK -> container.player.setSleepTimer(null, endOfTrack = true)
+                    else -> container.player.setSleepTimer(choice)
+                }
+            },
         )
     }
 }
+
+/** Sleep-timer choices in minutes; [SLEEP_END_OF_TRACK] stops when the current track does. */
+val SLEEP_CHOICES = listOf(15, 30, 45, 60, 90)
+const val SLEEP_END_OF_TRACK = -1
 
 /**
  * Everything the Now Playing sheet draws, with no container behind it, so it can be
@@ -204,8 +244,16 @@ fun NowPlayingContent(
     onRepeat: () -> Unit,
     onSpeed: (Float) -> Unit,
     onOpenQueue: () -> Unit,
+    showLyrics: Boolean = false,
+    /** Null while loading (or while the panel is closed). */
+    lyrics: LyricsResult? = null,
+    onToggleLyrics: () -> Unit = {},
+    /** Minutes, [SLEEP_END_OF_TRACK], or null to cancel. */
+    onSleepTimer: (Int?) -> Unit = {},
+    nowMs: Long = System.currentTimeMillis(),
 ) {
     val palette = LocalLumiPalette.current
+    var sleepMenu by remember { mutableStateOf(false) }
     run {
         Box(Modifier.fillMaxWidth()) {
             // The backdrop uses whatever the row uses -- real artwork when the track has it,
@@ -258,13 +306,17 @@ fun NowPlayingContent(
                 )
                 Spacer(Modifier.height(22.dp))
 
-                Artwork(
-                    model = state.artworkUrl,
-                    fallbackKey = state.serverPath ?: state.title.orEmpty(),
-                    size = 232.dp,
-                    corner = 20.dp,
-                    modifier = Modifier.aspectRatio(1f),
-                )
+                if (showLyrics) {
+                    LyricsPanel(lyrics, state.positionMs, onSeek)
+                } else {
+                    Artwork(
+                        model = state.artworkUrl,
+                        fallbackKey = state.serverPath ?: state.title.orEmpty(),
+                        size = 232.dp,
+                        corner = 20.dp,
+                        modifier = Modifier.aspectRatio(1f),
+                    )
+                }
 
                 Spacer(Modifier.height(22.dp))
                 Text(
@@ -397,6 +449,45 @@ fun NowPlayingContent(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    IconButton(onClick = onToggleLyrics) {
+                        Icon(
+                            Icons.Filled.Lyrics,
+                            contentDescription = if (showLyrics) "Hide lyrics" else "Show lyrics",
+                            tint = if (showLyrics) palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val timerOn = state.sleepAtMs != null || state.sleepAtEndOfTrack
+                    Box {
+                        IconButton(onClick = { sleepMenu = true }) {
+                            Icon(
+                                Icons.Filled.Bedtime,
+                                contentDescription = "Sleep timer",
+                                tint = if (timerOn) palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
+                            SLEEP_CHOICES.forEach { minutes ->
+                                DropdownMenuItem(
+                                    text = { Text("$minutes minutes") },
+                                    onClick = { sleepMenu = false; onSleepTimer(minutes) },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("End of this track") },
+                                onClick = { sleepMenu = false; onSleepTimer(SLEEP_END_OF_TRACK) },
+                            )
+                            if (timerOn) {
+                                DropdownMenuItem(
+                                    text = { Text("Turn off timer") },
+                                    onClick = { sleepMenu = false; onSleepTimer(null) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                sleepLabel(state, nowMs)?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = palette.accent)
                 }
 
                 state.playbackError?.let {
@@ -404,6 +495,77 @@ fun NowPlayingContent(
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
                 Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+/** "Sleeping in 23 min" / "Stopping after this track", or null when no timer is set. */
+fun sleepLabel(state: PlaybackUiState, nowMs: Long): String? = when {
+    state.sleepAtEndOfTrack -> "Stopping after this track"
+    state.sleepAtMs != null -> {
+        val minutes = ((state.sleepAtMs - nowMs + 59_999) / 60_000).coerceAtLeast(1)
+        "Sleeping in $minutes min"
+    }
+    else -> null
+}
+
+/**
+ * Synced lyrics with the current line lit and kept in view, or plain lyrics scrolling
+ * freely. Tapping a synced line seeks to it. Sized like the artwork it replaces, so the
+ * transport below never moves when the panel is toggled.
+ */
+@Composable
+private fun LyricsPanel(lyrics: LyricsResult?, positionMs: Long, onSeek: (Long) -> Unit) {
+    val palette = LocalLumiPalette.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(300.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.22f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        when (lyrics) {
+            null -> CircularProgressIndicator(color = palette.accent, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+            LyricsResult.None -> Text(
+                "No lyrics for this track.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            is LyricsResult.Plain -> Text(
+                lyrics.text,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+            )
+            is LyricsResult.Synced -> {
+                val active = LrcParser.activeIndex(lyrics.lines, positionMs)
+                val listState = rememberLazyListState()
+                LaunchedEffect(active) {
+                    // Keep the live line about a third of the way down, with context above it.
+                    if (active >= 0) listState.animateScrollToItem((active - 2).coerceAtLeast(0))
+                }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    itemsIndexed(lyrics.lines) { index, line ->
+                        val isActive = index == active
+                        Text(
+                            line.text,
+                            style = if (isActive) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+                            color = when {
+                                isActive -> Color.White
+                                index < active -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.fillMaxWidth().clickable { onSeek(line.timeMs) },
+                        )
+                    }
+                }
             }
         }
     }

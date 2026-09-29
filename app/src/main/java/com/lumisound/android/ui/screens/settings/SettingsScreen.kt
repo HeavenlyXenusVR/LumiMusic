@@ -14,7 +14,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
@@ -46,7 +51,7 @@ import com.lumisound.android.AppContainer
 import com.lumisound.android.BuildConfig
 import com.lumisound.android.bridge.AccountState
 import com.lumisound.android.bridge.BridgeUrls
-import com.lumisound.android.ui.SettingsDestination
+import com.lumisound.android.ui.Route
 import com.lumisound.android.ui.components.Hairline
 import com.lumisound.android.ui.components.LumiCard
 import com.lumisound.android.ui.components.OneLine
@@ -59,7 +64,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     container: AppContainer,
     onOpenImport: () -> Unit,
-    onOpen: (SettingsDestination) -> Unit,
+    onOpen: (Route) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val palette = LocalLumiPalette.current
@@ -157,19 +162,57 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(22.dp))
+        SettingsGroup("Your listening") {
+            SettingsRow(
+                icon = Icons.Filled.BarChart,
+                title = "Stats",
+                subtitle = "Totals, streaks, top artists and your year of listening",
+                onClick = { onOpen(Route.Stats) },
+            )
+            Hairline()
+            SettingsRow(
+                icon = Icons.Filled.Replay,
+                title = "Rewind",
+                subtitle = "This month, this year and all time, wrapped",
+                onClick = { onOpen(Route.Rewind) },
+            )
+            Hairline()
+            SettingsRow(
+                icon = Icons.Filled.EmojiEvents,
+                title = "Achievements",
+                subtitle = "Badges earned on every device",
+                onClick = { onOpen(Route.Achievements) },
+            )
+            Hairline()
+            SettingsRow(
+                icon = Icons.Filled.Sync,
+                title = "Scrobbling",
+                subtitle = "Last.fm, Libre.fm and ListenBrainz",
+                onClick = { onOpen(Route.Scrobbling) },
+            )
+            Hairline()
+            SettingsRow(
+                icon = Icons.Filled.Notifications,
+                title = "Inbox",
+                subtitle = "Friend requests, badges and new releases",
+                onClick = { onOpen(Route.Notifications) },
+            )
+        }
+
+        Spacer(Modifier.height(22.dp))
         SettingsGroup("Playback & storage") {
             SettingsRow(
                 icon = Icons.Filled.Equalizer,
                 title = "Equalizer",
                 subtitle = "Your device's own bands and presets",
-                onClick = { onOpen(SettingsDestination.Equalizer) },
+                onClick = { onOpen(Route.Equalizer) },
             )
             Hairline()
             SettingsRow(
                 icon = Icons.Filled.Download,
                 title = "Offline downloads",
                 subtitle = if (downloads.isEmpty()) "Nothing saved yet" else "${downloads.size} tracks saved",
-                onClick = { onOpen(SettingsDestination.Downloads) },
+                onClick = { onOpen(Route.Downloads) },
             )
             Hairline()
             SettingsRow(
@@ -191,7 +234,7 @@ fun SettingsScreen(
                 icon = Icons.Filled.BugReport,
                 title = "Diagnostics & telemetry",
                 subtitle = "Live state, logs, and report a problem",
-                onClick = { onOpen(SettingsDestination.Diagnostics) },
+                onClick = { onOpen(Route.Diagnostics) },
             )
             Hairline()
             SettingsRow(

@@ -20,9 +20,23 @@ same per-user cloud storage, so:
 
 ## Status
 
-Milestones 1 and 2 are built: account + cloud import + cloud playback, the device's own
+Milestones 1, 2 and 3 are built: account + cloud import + cloud playback, the device's own
 library, queue/shuffle/repeat/speed, offline downloads, favorites and playlist editing,
-the equalizer, and a full diagnostics/telemetry stack. The UI follows Lumisound's own visual
+the equalizer, and a full diagnostics/telemetry stack -- and now the breadth surface:
+
+- **Home dashboard** -- Aria's daily pick, Weekly Mix, Discover Mix, Continue Listening,
+  On This Day, recently played, what's trending with other listeners, and your listening twin.
+- **Search and stream YouTube and SoundCloud** through the bridge, with play next / queue /
+  **radio** from any result, trending and recent searches, and autocomplete.
+- **Synced lyrics** in Now Playing (tap a line to seek), plus a **sleep timer**.
+- **Friends** -- who's online and what they're playing right now, requests, an activity
+  feed, people search, profiles with badges and a Music Match score.
+- **Podcasts** -- search, Apple's trending chart, follow/unfollow, episodes, and progress
+  that resumes where you left off on iPhone or Android.
+- **Stats, Rewind and Achievements** -- totals, streaks, a year-long listening heatmap,
+  monthly/yearly recaps you can share, and Lumisound's full badge set.
+- **Inbox and scrobbling** -- notifications, and Last.fm / Libre.fm / ListenBrainz status
+  with a ListenBrainz token field and an on/off switch. The UI follows Lumisound's own visual
 language, built from its `AppTheme` tokens rather than approximated — see the visual design
 section of the roadmap for what is matched and what is not. Signed APKs are attached to every
 tagged release. See
@@ -52,6 +66,8 @@ Neither is needed to build, run, or sign in.
 audio/         Equalizer + the audio session id the effects chain binds to
 bridge/        Retrofit APIs, auth interceptor, token store, URL builders
 cloud/         CloudImportService — pulls account data into the local mirror
+lyrics/        LRC parsing and the lyrics cache
+social/        Presence heartbeat for friends
 data/db/       Room mirror of server state + the device library and offline downloads
 diagnostics/   Logger, telemetry upload, crash reporter, hang watchdog, HTTP metrics
 download/      Offline copies of cloud tracks (stored exactly as the server sent them)

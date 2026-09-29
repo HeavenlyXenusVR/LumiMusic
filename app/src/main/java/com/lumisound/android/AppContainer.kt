@@ -10,6 +10,7 @@ import com.lumisound.android.bridge.LoudnessGainStore
 import com.lumisound.android.bridge.TokenStore
 import com.lumisound.android.cloud.CloudImportService
 import com.lumisound.android.data.AppearanceStore
+import com.lumisound.android.data.SearchHistoryStore
 import com.lumisound.android.data.db.LumiDatabase
 import com.lumisound.android.data.repo.LibraryRepository
 import com.lumisound.android.diagnostics.AppLogger
@@ -21,8 +22,11 @@ import com.lumisound.android.diagnostics.RemoteLogger
 import com.lumisound.android.diagnostics.TelemetryUploader
 import com.lumisound.android.download.DownloadManager
 import com.lumisound.android.library.LibraryScanner
+import com.lumisound.android.lyrics.LyricsRepository
 import com.lumisound.android.playback.PlayHistoryLogger
 import com.lumisound.android.playback.PlayerController
+import com.lumisound.android.playback.PodcastProgressTracker
+import com.lumisound.android.social.PresenceService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -57,6 +61,9 @@ class AppContainer(private val context: Context) {
     val downloads by lazy { DownloadManager(context, http, config, database, remoteLogger, scope) }
     val equalizer by lazy { EqualizerController(context) }
     val player by lazy { PlayerController(context, config, scope) }
+    val lyrics by lazy { LyricsRepository(http) }
+    val searchHistory by lazy { SearchHistoryStore(context) }
+    val presence by lazy { PresenceService(http, tokenStore, player, scope) }
 
     val diagnostics by lazy {
         DiagnosticsSnapshotService(
@@ -73,6 +80,7 @@ class AppContainer(private val context: Context) {
     }
 
     private val historyLogger by lazy { PlayHistoryLogger(http, tokenStore, player, scope) }
+    private val podcastProgress by lazy { PodcastProgressTracker(http, tokenStore, player, scope) }
     private val watchdog by lazy { MainThreadWatchdog(scope) }
 
     fun onAppStart() {
@@ -94,6 +102,7 @@ class AppContainer(private val context: Context) {
 
         player.connect()
         historyLogger.start()
+        podcastProgress.start()
         diagnostics.start()
 
         scope.launch {

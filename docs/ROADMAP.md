@@ -170,14 +170,50 @@ and only launch-time samples ever reached the server.
 - Sort options, per-track "go to artist/album", album art grid views
 - Playlist reordering (the bridge has no reorder route; it would need position rewrites)
 
-## Milestone 3+ — the breadth surface
+## Milestone 3 — the breadth surface (built, v0.5.0)
 
-Roughly in bridge-endpoint order, each independently portable: discover mix / on this day /
-trending / similar listeners, subscriptions + new-release feed, podcasts (+ chapters, OPML,
-episode progress), social (friends, presence, profiles, leaderboards, activity), scrobbling
-account linking, achievements, stats / year-in-review, collaborative playlists, lyrics
-(incl. Whisper transcription), listening rooms, AcoustID identification, BPM analysis,
-smart playlists, Aria's daily pick and the rest of the intelligence endpoints.
+The app is now five tabs -- Home, Search, Library, Friends, Settings -- with detail screens
+pushed over them and popped by the back gesture. Library gathers the milestone 1-2 screens
+(Cloud, Device, Favorites, Playlists) plus Podcasts under one tab.
+
+| Piece | State | Notes |
+|---|---|---|
+| YouTube / SoundCloud search | Done | `/api/search`, `/api/search/suggestions`, `/api/search/trending`. Recent queries are kept on the device only. |
+| Streaming | Done | `/api/stream/proxy`, never the raw CDN URL from `/api/stream`: googlevideo URLs are bound to the extracting IP. No ticket in the URL -- ExoPlayer resends headers on range requests, so the session travels as `X-Account-Token`, which the proxy accepts outright. |
+| Radio | Done | `/api/radio` -- YouTube's own mix for a seed, seed first. |
+| Home dashboard | Done | Aria's daily pick, Weekly Mix (mirror rows preferred, so offline copies and lock flags apply), Discover Mix, podcast Continue Listening, On This Day, recently played, `/social/discover` trending, Listening Twin + Twin Mix. Each section loads alone; a failed or empty one is left out rather than shown as an error. |
+| Lyrics | Done | `/user/lyrics` (the JWT twin of `/api/lyrics`, same cache, so Aria's transcriptions and corrections show). LRC parsed on-device: multi-timestamp lines, offsets, ms/cs fractions. Tap a line to seek. |
+| Sleep timer | Done | 15-90 minutes or end of track. End of track pauses on the *automatic* transition only; a manual skip means someone is awake. |
+| Friends | Done | Friends with batched presence (refreshed every 30s while open), requests, activity feed, people search, profiles with badges/genres/pinned tracks, and Music Match between friends. |
+| Presence | Done | Heartbeat every 45s while in the foreground and on each track change, `going_offline` on the way to the background unless still playing. Only public artwork URLs are sent -- a cloud track's JWT-gated artwork would be a broken image on a friend's screen. |
+| Podcasts | Done | Search, trending, follow/unfollow, episodes, and progress saved every 20s / on pause / on switch to the same row iOS reads. Within 30s of the end counts as finished. Episodes are not logged as music plays. |
+| Stats / Rewind / Achievements | Done | Lifetime totals, streaks (with the device's UTC offset, which the bridge needs for "today"), 7-day bars, a year heatmap bucketed by the account's own quartiles, month/year/all-time recaps shareable as text, and Lumisound's 20 badges with progress where the totals allow. |
+| Inbox | Done | `/user/notifications`, read one / read all, marked optimistically. |
+| Scrobbling | Done | Status for all three services, the on/off switch, and a ListenBrainz token field. `PUT /user/scrobble` stores a null `enabled` as *true*, so every write sends the current value. Last.fm / Libre.fm linking stays on iOS: it is a browser round trip. |
+
+### Fixed along the way
+
+- **The session token went to every host.** The shared OkHttp client attached `Authorization`
+  to any request it carried. Harmless while it only ever talked to the bridge; with YouTube
+  thumbnails, podcast artwork and episode audio now flowing through the same client (for
+  Coil and ExoPlayer), it would have sent the account's session to each of those CDNs.
+  Credentials now go to the configured bridge host only (`BridgeConfig.isBridgeHost`).
+- **Plays other than cloud tracks were never logged.** The history logger keyed on the
+  server path, which is null for every device file, so only the first device track after a
+  cloud one ever counted. It now keys on the queue entry, and streamed plays carry their
+  `track_url` so On This Day can find them again.
+- **`EXTRA_DURATION_MS` was read but never written**, so a track's known duration never
+  reached the seek bar before the decoder worked it out.
+
+### Still open from milestone 3
+
+- Collaborative playlists and Shared with Me
+- Artist subscriptions and the new-release feed
+- Listening rooms (`/rooms/*`) -- the closest Android can get to SharePlay
+- Podcast chapters and OPML import/export
+- Smart playlists, AcoustID identification, BPM analysis, liner notes
+- Favoriting a streamed track (the bridge keys favorites by song id, and a stream has none
+  that iOS would recognise yet)
 
 Known non-portable: Discord **Rich Presence** (needs the desktop IPC daemon), SharePlay
 "Listen Together", spatial audio (genuine HRTF rendering with head tracking).

@@ -33,7 +33,10 @@ class PlayHistoryLogger(
     fun start() {
         scope.launch {
             player.state
-                .distinctUntilChangedBy { it.serverPath }
+                // Keyed on the queue entry, not the server path: a streamed track or a
+                // device file has no server path, and keying on it made every one of them
+                // look like "no change" -- so none of them were ever logged.
+                .distinctUntilChangedBy { it.mediaId }
                 .collect { state -> schedule(state) }
         }
     }
@@ -42,6 +45,9 @@ class PlayHistoryLogger(
         pending?.cancel()
         val title = state.title ?: return
         if (tokenStore.token == null) return
+        // An episode is tracked as progress on the podcast routes, not as a music play:
+        // counting it here would put a show in top artists and scrobble it to Last.fm.
+        if (state.podcastFeedUrl != null) return
         pending = scope.launch {
             delay(SKIP_FILTER_MS)
             try {
@@ -49,6 +55,7 @@ class PlayHistoryLogger(
                     LogPlayRequest(
                         title = title,
                         artist = state.artist,
+                        trackUrl = state.trackUrl,
                         localSongId = state.serverPath,
                         listenSeconds = (SKIP_FILTER_MS / 1000).toInt(),
                     )

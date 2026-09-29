@@ -6,7 +6,11 @@ import com.lumisound.android.BuildConfig
 import com.lumisound.android.bridge.api.AuthApi
 import com.lumisound.android.bridge.api.CloudMusicApi
 import com.lumisound.android.bridge.api.DiagnosticsApi
+import com.lumisound.android.bridge.api.DiscoveryApi
 import com.lumisound.android.bridge.api.LibraryDataApi
+import com.lumisound.android.bridge.api.PodcastApi
+import com.lumisound.android.bridge.api.SocialApi
+import com.lumisound.android.bridge.api.StreamingApi
 import com.lumisound.android.diagnostics.HttpMetrics
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
@@ -87,6 +91,10 @@ class BridgeHttp(
     val cloudMusic: CloudMusicApi get() = current().create(CloudMusicApi::class.java)
     val libraryData: LibraryDataApi get() = current().create(LibraryDataApi::class.java)
     val diagnostics: DiagnosticsApi get() = current().create(DiagnosticsApi::class.java)
+    val streaming: StreamingApi get() = current().create(StreamingApi::class.java)
+    val discovery: DiscoveryApi get() = current().create(DiscoveryApi::class.java)
+    val social: SocialApi get() = current().create(SocialApi::class.java)
+    val podcasts: PodcastApi get() = current().create(PodcastApi::class.java)
 }
 
 /**
@@ -103,24 +111,28 @@ private class AuthInterceptor(
         val request = chain.request()
         if (request.header("Authorization") != null) return chain.proceed(request)
 
+        // This client is shared with the player and the image loader, which now also fetch
+        // from other hosts: YouTube and SoundCloud thumbnails, podcast artwork and episode
+        // audio. A credential goes to the bridge and nowhere else -- anything else would
+        // hand the account's session token to whichever CDN served a thumbnail.
+        if (!BridgeConfig.isBridgeHost(request.url.host, config.baseUrl)) return chain.proceed(request)
+
         // The log-ingest route is unauthenticated server-side and does its own
         // per-row attribution from the payload, so the session token has no reason
         // to be sent there at all. (`/api/log-event` and `/bug-report` DO read it,
         // optionally, to attach a user id -- those keep it.)
         if (request.url.encodedPath.trimStart('/') == "internal/logs") return chain.proceed(request)
 
-        val credential = if (BridgeConfig.isSharedKeyRoute(request.url.encodedPath)) {
-            config.sharedApiKey
-        } else {
-            tokenStore.token
-        }
-        if (credential.isNullOrEmpty()) return chain.proceed(request)
-
-        return chain.proceed(
-            request.newBuilder()
-                .header("Authorization", "Bearer $credential")
-                .build()
-        )
+        val sharedKeyRoute = BridgeConfig.isSharedKeyRoute(request.url.encodedPath)
+        val credential = if (sharedKeyRoute) config.sharedApiKey else tokenStore.token
+        val builder = request.newBuilder()
+        if (!credential.isNullOrEmpty()) builder.header("Authorization", "Bearer $credential")
+        // The shared-key routes also read the session token, as `X-Account-Token`: it is
+        // how a search uses the account's own YouTube API key and cookies, and
+        // `/api/stream/proxy` accepts it as authentication outright -- so a stream still
+        // plays on a build with no shared key compiled in.
+        if (sharedKeyRoute) tokenStore.token?.let { builder.header("X-Account-Token", it) }
+        return chain.proceed(builder.build())
     }
 }
 

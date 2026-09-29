@@ -2,6 +2,7 @@ package com.lumisound.android.bridge
 
 import android.content.Context
 import com.lumisound.android.BuildConfig
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Where this install talks to, and with what shared key.
@@ -62,6 +63,14 @@ class BridgeConfig(context: Context) {
             return text.substring(0, schemeEnd).lowercase() +
                 text.substring(schemeEnd, hostEnd).lowercase() +
                 text.substring(hostEnd).trimEnd('/')
+        }
+
+        /** Whether [host] is the configured bridge's own host -- the only one given credentials. */
+        fun isBridgeHost(host: String, baseUrl: String): Boolean {
+            // Parsed the way OkHttp parses the request's own URL, so the two hosts compare
+            // like for like (IPv6 brackets, IDN, case) rather than as hand-split strings.
+            val bridgeHost = normalise(baseUrl).toHttpUrlOrNull()?.host ?: return false
+            return host.equals(bridgeHost, ignoreCase = true)
         }
 
         /**

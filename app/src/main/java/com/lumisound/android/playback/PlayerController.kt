@@ -48,6 +48,16 @@ data class PlaybackUiState(
     val speed: Float = 1f,
     val isLocalSource: Boolean = false,
     val playbackError: String? = null,
+    /** The queue entry's id: a server path, `local:…`, `youtube:…` or `podcast:…`. */
+    val mediaId: String? = null,
+    /** Canonical page URL of a streamed track -- see `PlayableTrack.trackUrl`. */
+    val trackUrl: String? = null,
+    val podcastFeedUrl: String? = null,
+    val episodeGuid: String? = null,
+    /** Wall-clock millis the sleep timer fires at, or null when none is set. */
+    val sleepAtMs: Long? = null,
+    /** Sleep once the current track finishes instead of at a fixed time. */
+    val sleepAtEndOfTrack: Boolean = false,
     /**
      * Filled in by the UI, not the player: whether the current track is a favorite is
      * account state, and the session has no idea about it.
@@ -73,8 +83,27 @@ class PlayerController(
 
     private var controller: MediaController? = null
 
+    private var sleepJob: kotlinx.coroutines.Job? = null
+    private var sleepAtMs: Long? = null
+    private var sleepAtEndOfTrack = false
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = publish()
+
+        /**
+         * "End of track" sleep: an automatic advance means the track that was playing has
+         * finished, so the new one is paused before it gets going. A skip by hand is the
+         * listener still being awake, and does not count.
+         */
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (sleepAtEndOfTrack && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                controller?.pause()
+                controller?.seekTo(0L)
+                sleepAtEndOfTrack = false
+                AppLogger.i("playback", "sleep timer fired at end of track")
+                publish()
+            }
+        }
 
         /**
          * A stream that dies is the failure mode with the least visible cause -- the
@@ -118,11 +147,18 @@ class PlayerController(
         controller = null
     }
 
-    /** Plays [tracks] starting at [startIndex], replacing whatever queue exists. */
-    fun play(tracks: List<PlayableTrack>, startIndex: Int) {
+    /**
+     * Plays [tracks] starting at [startIndex], replacing whatever queue exists.
+     * [startPositionMs] resumes part-way in -- a podcast episode picked up where it was left.
+     */
+    fun play(tracks: List<PlayableTrack>, startIndex: Int, startPositionMs: Long = 0L) {
         val player = controller ?: return
         if (tracks.isEmpty()) return
-        player.setMediaItems(tracks.map { it.toMediaItem() }, startIndex.coerceIn(0, tracks.lastIndex), 0L)
+        player.setMediaItems(
+            tracks.map { it.toMediaItem() },
+            startIndex.coerceIn(0, tracks.lastIndex),
+            startPositionMs.coerceAtLeast(0L),
+        )
         player.prepare()
         player.play()
         AppLogger.i(
@@ -190,6 +226,38 @@ class PlayerController(
         controller?.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f))
     }
 
+    /**
+     * Pauses after [minutes], or when the current track ends if [minutes] is null and
+     * [endOfTrack] is set. Either call replaces whatever timer was running; [cancelSleepTimer]
+     * clears it. The timer lives in the app process with the controller, not the service:
+     * if the process is gone there is no UI that could have set one anyway.
+     */
+    fun setSleepTimer(minutes: Int?, endOfTrack: Boolean = false) {
+        cancelSleepTimer()
+        if (endOfTrack) {
+            sleepAtEndOfTrack = true
+        } else if (minutes != null && minutes > 0) {
+            val fireAt = System.currentTimeMillis() + minutes * 60_000L
+            sleepAtMs = fireAt
+            sleepJob = scope.launch(Dispatchers.Main) {
+                kotlinx.coroutines.delay(fireAt - System.currentTimeMillis())
+                controller?.pause()
+                sleepAtMs = null
+                AppLogger.i("playback", "sleep timer fired", mapOf("minutes" to minutes))
+                publish()
+            }
+        }
+        publish()
+    }
+
+    fun cancelSleepTimer() {
+        sleepJob?.cancel()
+        sleepJob = null
+        sleepAtMs = null
+        sleepAtEndOfTrack = false
+        publish()
+    }
+
     /** The queue as the session currently holds it, for the Queue screen. */
     fun queueSnapshot(): List<QueueItem> {
         val player = controller ?: return emptyList()
@@ -230,7 +298,7 @@ class PlayerController(
     private fun publish() {
         val player = controller
         if (player == null) {
-            _state.value = PlaybackUiState()
+            _state.value = PlaybackUiState(sleepAtMs = sleepAtMs, sleepAtEndOfTrack = sleepAtEndOfTrack)
             return
         }
         val item = player.currentMediaItem
@@ -254,6 +322,12 @@ class PlayerController(
             speed = player.playbackParameters.speed,
             isLocalSource = metadata?.extras?.getBoolean(EXTRA_IS_LOCAL) == true,
             playbackError = player.playerError?.let { "${it.errorCodeName}: ${it.message}" },
+            mediaId = item?.mediaId,
+            trackUrl = metadata?.extras?.getString(EXTRA_TRACK_URL),
+            podcastFeedUrl = metadata?.extras?.getString(EXTRA_PODCAST_FEED),
+            episodeGuid = metadata?.extras?.getString(EXTRA_EPISODE_GUID),
+            sleepAtMs = sleepAtMs,
+            sleepAtEndOfTrack = sleepAtEndOfTrack,
         )
     }
 

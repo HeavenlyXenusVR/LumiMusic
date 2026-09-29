@@ -27,12 +27,22 @@ class MainActivity : ComponentActivity() {
                 .launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // Presence follows the activity: friends see this account online while it is on
+        // screen (or still playing), and offline promptly once it is not.
+        //
         // A snapshot on return to the foreground: a repeating timer does not run while
         // the process is suspended, so without this the periodic tick would in practice
         // only ever produce launch-time samples -- exactly what happened on iOS.
         lifecycle.addObserver(
             androidx.lifecycle.LifecycleEventObserver { _, event ->
-                if (event == androidx.lifecycle.Lifecycle.Event.ON_START) container.diagnostics.noteForeground()
+                when (event) {
+                    androidx.lifecycle.Lifecycle.Event.ON_START -> {
+                        container.diagnostics.noteForeground()
+                        container.presence.onForeground()
+                    }
+                    androidx.lifecycle.Lifecycle.Event.ON_STOP -> container.presence.onBackground()
+                    else -> Unit
+                }
             }
         )
 
