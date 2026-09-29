@@ -129,8 +129,8 @@ fun StatsContent(
                     Modifier.weight(1f).fillMaxHeight(),
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile(streak?.let { "${it.longestStreakDays}d" } ?: "—", "longest streak", Icons.Filled.WorkspacePremium, SectionTint.Favorites)
-                    StatTile("${stats.topArtists.size}", "artists in your top", Icons.Filled.Person, SectionTint.Library)
+                    StatTile(streak?.let { "${it.longestStreakDays}d" } ?: "—", "longest streak", Icons.Filled.WorkspacePremium, SectionTint.Favorites, Modifier.fillMaxWidth())
+                    StatTile("${stats.topArtists.size}", "artists in your top", Icons.Filled.Person, SectionTint.Library, Modifier.fillMaxWidth())
                 }
             }
 

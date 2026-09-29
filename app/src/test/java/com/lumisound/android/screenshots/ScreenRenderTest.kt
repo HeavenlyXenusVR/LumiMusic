@@ -120,7 +120,7 @@ class ScreenRenderTest {
 
     private val aura = Aura.forKey("youtube:midnight-city")
 
-    private fun capture(name: String, withDock: Boolean = false, content: @Composable () -> Unit) {
+    private fun capture(name: String, withDock: Boolean = false, dockTab: DockTab = DockTab.Home, content: @Composable () -> Unit) {
         captureRoboImage(filePath = "build/outputs/roborazzi/$name.png") {
             LumiMusicTheme(accentHex = "#EC4079") {
                 CompositionLocalProvider(LocalAura provides aura, LocalMotion provides false) {
@@ -128,7 +128,7 @@ class ScreenRenderTest {
                         content()
                         if (withDock) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                                OrbitDock(DockTab.Home, {}, playing, {}, {})
+                                OrbitDock(dockTab, {}, playing, {}, {})
                             }
                         }
                     }
@@ -222,7 +222,7 @@ class ScreenRenderTest {
     // --- Search --------------------------------------------------------------------------
 
     @Test
-    fun searchIdle() = capture("03-search", withDock = true) {
+    fun searchIdle() = capture("03-search", withDock = true, dockTab = DockTab.Search) {
         SearchContent(
             SearchUiState(
                 recent = listOf("m83 midnight city", "lofi beats", "tycho"),
@@ -266,7 +266,7 @@ class ScreenRenderTest {
     )
 
     @Test
-    fun libraryHome() = capture("05-library", withDock = true) {
+    fun libraryHome() = capture("05-library", withDock = true, dockTab = DockTab.Library) {
         LibraryHomeContent(
             data = LibraryHomeData(
                 counts = mapOf(
@@ -373,7 +373,7 @@ class ScreenRenderTest {
     )
 
     @Test
-    fun circle() = capture("13-circle", withDock = true) {
+    fun circle() = capture("13-circle", withDock = true, dockTab = DockTab.Friends) {
         SocialContent(
             SocialUiState(
                 tab = SocialTab.Friends,

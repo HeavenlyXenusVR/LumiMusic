@@ -202,7 +202,7 @@ fun PodcastsContent(state: PodcastsUiState, callbacks: PodcastsCallbacks) {
                                         Column(
                                             Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(18.dp))
+                                                .clip(RoundedCornerShape(8.dp))
                                                 .clickable { callbacks.onOpenShow(sub.feedUrl, sub.title ?: "Podcast", sub.artworkUrl) }
                                         ) {
                                             Artwork(sub.artworkUrl, sub.feedUrl, 108.dp, corner = 18.dp)
