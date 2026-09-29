@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import com.lumisound.android.bridge.model.DayStatDto
 import com.lumisound.android.ui.components.LumiCard
@@ -41,7 +42,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 /** A pushed screen's header: back arrow, large title, optional line under it. */
 @Composable
@@ -123,6 +123,8 @@ fun RankedRow(rank: Int, title: String, subtitle: String?, trailing: String, onC
 @Composable
 fun WeekBars(days: List<DayStatDto>, today: LocalDate, modifier: Modifier = Modifier) {
     val palette = LocalLumiPalette.current
+    // The composition's locale, not Locale.getDefault(): the labels follow a language change.
+    val locale = LocalLocale.current.platformLocale
     val byDate = days.associateBy { it.date }
     val week = (6 downTo 0).map { today.minusDays(it.toLong()) }
     val values = week.map { (byDate[it.toString()]?.listenSeconds ?: 0L).toFloat() }
@@ -144,7 +146,7 @@ fun WeekBars(days: List<DayStatDto>, today: LocalDate, modifier: Modifier = Modi
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (date == today) palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
