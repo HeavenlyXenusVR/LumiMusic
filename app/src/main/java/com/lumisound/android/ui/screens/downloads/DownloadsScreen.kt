@@ -1,5 +1,7 @@
 package com.lumisound.android.ui.screens.downloads
 
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,16 +34,25 @@ import kotlinx.coroutines.launch
  * so an offline copy is no more playable outside this app than a streamed one.
  */
 @Composable
-fun DownloadsScreen(container: AppContainer) {
+fun DownloadsScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val downloads by container.database.downloads().observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val active by container.downloads.active.collectAsStateWithLifecycle()
     val queued by container.downloads.queued.collectAsStateWithLifecycle()
 
+    val totalMb = downloads.sumOf { it.sizeBytes } / 1_048_576
     Column(Modifier.fillMaxSize()) {
+        com.lumisound.android.ui.components.ScreenTitle(
+            "Offline",
+            subtitle = "${downloads.size} tracks · $totalMb MB on this phone",
+            eyebrow = "Downloads",
+            onBack = onBack,
+        )
         active?.let { progress ->
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).then(
+                Modifier.background(com.lumisound.android.ui.theme.LocalLumiPalette.current.elevatedSurface, androidx.compose.foundation.shape.RoundedCornerShape(22.dp))
+            ).padding(16.dp)) {
                 Text(
                     "Downloading ${progress.title}",
                     maxLines = 1,
@@ -82,22 +93,22 @@ fun DownloadsScreen(container: AppContainer) {
         }
 
         if (downloads.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    "Nothing saved offline yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            com.lumisound.android.ui.components.EmptyState(
+                icon = androidx.compose.material.icons.Icons.Filled.DownloadForOffline,
+                title = "Nothing offline yet",
+                message = "Download tracks from your cloud library and they play here with no connection — still locked to this app.",
+            )
             return@Column
         }
 
         LazyColumn(Modifier.fillMaxSize()) {
             items(downloads, key = { it.serverPath }) { download ->
                 Row(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+                    Modifier.fillMaxWidth().padding(start = 18.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    com.lumisound.android.ui.components.Artwork(model = null, fallbackKey = download.serverPath, size = 48.dp, corner = 13.dp)
+                    androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             download.serverPath.substringAfterLast('/'),

@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -42,7 +41,34 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.lumisound.android.bridge.model.StreamTrackDto
 import com.lumisound.android.data.db.CloudTrackEntity
-import com.lumisound.android.ui.components.ChipRow
+import com.lumisound.android.ui.aura.Aura
+import com.lumisound.android.ui.components.Artwork
+import com.lumisound.android.ui.components.BigTile
+import com.lumisound.android.ui.components.EqualizerBars
+import com.lumisound.android.ui.components.Eyebrow
+import com.lumisound.android.ui.components.GlassButton
+import com.lumisound.android.ui.components.GlowButton
+import com.lumisound.android.ui.components.PlayOrb
+import com.lumisound.android.ui.components.SegmentedPill
+import com.lumisound.android.ui.components.streamSubtitle
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Mood
+import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import com.lumisound.android.ui.components.EmptyState
 import com.lumisound.android.ui.components.IconSectionHeader
 import com.lumisound.android.ui.components.Loadable
@@ -92,43 +118,51 @@ data class SearchCallbacks(
     val onRetry: () -> Unit = {},
 )
 
+/** A mood tile on the idle Search screen and the query it runs. */
+data class Mood(val label: String, val query: String, val icon: ImageVector)
+
+val MOODS = listOf(
+    Mood("Late night", "late night chill mix", Icons.Filled.NightsStay),
+    Mood("Focus", "deep focus instrumental", Icons.Filled.Psychology),
+    Mood("Workout", "workout motivation mix", Icons.Filled.FitnessCenter),
+    Mood("Lo-fi", "lofi hip hop beats", Icons.Filled.Headphones),
+    Mood("Throwback", "2000s throwback hits", Icons.Filled.History),
+    Mood("Road trip", "road trip songs", Icons.Filled.DirectionsCar),
+    Mood("Rainy day", "rainy day acoustic", Icons.Filled.WaterDrop),
+    Mood("Party", "party dance hits", Icons.Filled.Celebration),
+)
+
 /**
- * Search, for the whole catalogue rather than just what is already in the library -- the
- * feature Lumisound is built around and the one this port was most missing.
+ * Search, for the whole catalogue rather than just what is already in the library.
  *
- * YouTube and SoundCloud results go through the bridge, which does the extraction and
- * re-streams the audio; "Your cloud" searches the local mirror instantly. Before a search,
- * the screen offers the device's recent queries and what everyone has been searching.
+ * Before anything is typed the screen is a canvas rather than a blank field: recent queries
+ * as chips, what everyone is searching as a ranked ticker, and a grid of moods that each run
+ * a search. Results lead with one big "top result" you can play in a tap, then the rest.
+ * YouTube and SoundCloud go through the bridge; "Your cloud" searches the local mirror.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchContent(state: SearchUiState, callbacks: SearchCallbacks) {
     val palette = LocalLumiPalette.current
     Column(Modifier.fillMaxSize()) {
-        ScreenTitle("Search", subtitle = "YouTube, SoundCloud and your cloud library", modifier = Modifier.padding(top = 12.dp))
+        ScreenTitle("Search", eyebrow = "Find anything")
         SearchField(
             value = state.query,
             onValueChange = callbacks.onQueryChange,
             placeholder = when (state.source) {
-                SearchSource.Library -> "Songs, artists, albums in your cloud…"
-                else -> "Search ${state.source.label}…"
+                SearchSource.Library -> "Songs, artists, albums in your cloud"
+                else -> "What do you want to hear?"
             },
             onSubmit = { callbacks.onSubmit(state.query) },
         )
-        ChipRow(
-            SearchSource.entries.map { source ->
-                NavChip(
-                    label = source.label,
-                    icon = when (source) {
-                        SearchSource.YouTube -> Icons.Filled.PlayArrow
-                        SearchSource.SoundCloud -> Icons.Filled.Waves
-                        SearchSource.Library -> Icons.Filled.CloudQueue
-                    },
-                    selected = state.source == source,
-                    onClick = { callbacks.onSourceChange(source) },
-                )
-            }
+        Spacer(Modifier.height(12.dp))
+        SegmentedPill(
+            options = SearchSource.entries,
+            selected = state.source,
+            label = { it.label },
+            onSelect = callbacks.onSourceChange,
         )
+        Spacer(Modifier.height(6.dp))
 
         val showingResults = state.source == SearchSource.Library && state.query.isNotBlank() ||
             state.source != SearchSource.Library && state.submitted != null && state.submitted == state.query.trim()
@@ -139,54 +173,83 @@ fun SearchContent(state: SearchUiState, callbacks: SearchCallbacks) {
                     items(state.suggestions, key = { "s-$it" }) { suggestion ->
                         QueryRow(Icons.Filled.Search, suggestion, onClick = { callbacks.onSubmit(suggestion) })
                     }
+                    return@LazyColumn
                 }
-                if (state.query.isBlank() && state.recent.isNotEmpty()) {
+                if (state.recent.isNotEmpty()) {
                     item {
-                        IconSectionHeader(
-                            Icons.Filled.History,
-                            "Recent searches",
-                            tint = SectionTint.Recent,
-                        )
-                    }
-                    items(state.recent, key = { "r-$it" }) { query ->
-                        QueryRow(Icons.Filled.History, query, onClick = { callbacks.onSubmit(query) })
-                    }
-                    item {
-                        TextButton(onClick = callbacks.onClearRecent, modifier = Modifier.padding(start = 8.dp)) {
-                            Text("Clear recent searches")
+                        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Eyebrow("Recent", modifier = Modifier.weight(1f))
+                            TextButton(onClick = callbacks.onClearRecent) { Text("Clear") }
                         }
                     }
-                }
-                if (state.query.isBlank() && state.trending.isNotEmpty()) {
-                    item { IconSectionHeader(Icons.Filled.TrendingUp, "Trending searches", tint = SectionTint.Playlists) }
                     item {
-                        FlowRow(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            state.trending.forEach { query ->
-                                Box(
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(state.recent, key = { "r-$it" }) { query ->
+                                Row(
                                     Modifier
                                         .clip(CircleShape)
                                         .background(palette.elevatedSurface)
+                                        .border(1.dp, palette.hairline, CircleShape)
                                         .clickable { callbacks.onSubmit(query) }
-                                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
+                                    Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(6.dp))
                                     Text(query, style = MaterialTheme.typography.labelLarge)
                                 }
                             }
                         }
                     }
                 }
-                if (state.query.isBlank() && state.recent.isEmpty() && state.trending.isEmpty()) {
+                if (state.trending.isNotEmpty()) {
+                    item { IconSectionHeader(Icons.AutoMirrored.Filled.TrendingUp, "Everyone's searching", tint = SectionTint.Playlists) }
                     item {
-                        EmptyState(
-                            icon = Icons.Filled.MusicNote,
-                            title = "Find anything",
-                            message = "Search YouTube and SoundCloud through your bridge, and play it straight away — or queue it, or start a radio from it.",
-                            modifier = Modifier.height(360.dp),
-                        )
+                        FlowRow(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            state.trending.take(10).forEachIndexed { index, query ->
+                                Row(
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .background(palette.elevatedSurface)
+                                        .clickable { callbacks.onSubmit(query) }
+                                        .padding(start = 5.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        Modifier.size(24.dp).clip(CircleShape).background(if (index < 3) palette.accent else Color.White.copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text("${index + 1}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(query, style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                    }
+                }
+                item { IconSectionHeader(Icons.Filled.Mood, "Browse by mood", tint = SectionTint.Offline) }
+                item {
+                    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MOODS.chunked(2).forEach { pair ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                pair.forEach { mood ->
+                                    BigTile(
+                                        title = mood.label,
+                                        subtitle = null,
+                                        icon = mood.icon,
+                                        key = "mood-${mood.label}",
+                                        onClick = { callbacks.onSubmit(mood.query) },
+                                        modifier = Modifier.weight(1f),
+                                        height = 96.dp,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -208,54 +271,23 @@ fun SearchContent(state: SearchUiState, callbacks: SearchCallbacks) {
                 return@LoadableSection
             }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                item { TopResult(results.first(), state.playingId, onPlay = { callbacks.onPlayStream(results, 0) }, onRadio = callbacks.streamActions.onRadio) }
                 item {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Button(
-                            onClick = { callbacks.onPlayStream(results, 0) },
-                            shape = MaterialTheme.shapes.extraLarge,
-                            modifier = Modifier.weight(1f).height(46.dp),
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(19.dp))
-                            Text("  Play all")
-                        }
-                        Button(
-                            onClick = { callbacks.onShuffleStreams(results) },
-                            shape = MaterialTheme.shapes.extraLarge,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = palette.elevatedSurface,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                            modifier = Modifier.weight(1f).height(46.dp),
-                        ) {
-                            Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(19.dp))
-                            Text("  Shuffle")
-                        }
+                        Text("Songs", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        GlassButton("Shuffle", Icons.Filled.Shuffle, onClick = { callbacks.onShuffleStreams(results) })
+                        GlowButton("Play all", Icons.Filled.PlayArrow, onClick = { callbacks.onPlayStream(results, 0) })
                     }
                 }
-                if (state.source == SearchSource.YouTube) {
-                    item {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(Icons.Filled.Radio, contentDescription = null, tint = palette.accent, modifier = Modifier.size(14.dp))
-                            Text(
-                                "Tip: “Start radio” from a result's menu queues a mix built around it.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-                itemsIndexed(results, key = { i, t -> "${t.source}:${t.id}#$i" }) { index, track ->
+                itemsIndexed(results.drop(1), key = { i, t -> "${t.source}:${t.id}#$i" }) { index, track ->
                     StreamTrackRow(
                         track = track,
                         isPlaying = state.playingId == "${track.source}:${track.id}",
-                        onClick = { callbacks.onPlayStream(results, index) },
+                        onClick = { callbacks.onPlayStream(results, index + 1) },
                         actions = callbacks.streamActions,
                     )
                 }
@@ -264,6 +296,42 @@ fun SearchContent(state: SearchUiState, callbacks: SearchCallbacks) {
     }
 }
 
+/** The first result, big: the one most people wanted, playable without reading the list. */
+@Composable
+private fun TopResult(track: StreamTrackDto, playingId: String?, onPlay: () -> Unit, onRadio: ((StreamTrackDto) -> Unit)?) {
+    val aura = Aura.forKey("${track.source}:${track.id}")
+    val playing = playingId == "${track.source}:${track.id}"
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Eyebrow("Top result", modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(Brush.linearGradient(listOf(aura.primary.copy(alpha = 0.55f), aura.secondary.copy(alpha = 0.25f), Color(0x2207080F))))
+                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(26.dp))
+                .clickable(onClick = onPlay)
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Artwork(track.thumbnailUrl?.takeIf { it.isNotBlank() }, "${track.source}:${track.id}", 104.dp, corner = 20.dp)
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(track.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(4.dp))
+                    OneLine(streamSubtitle(track), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PlayOrb(onClick = onPlay, size = 44.dp)
+                        if (playing) EqualizerBars(playing = true, color = LocalLumiPalette.current.accent)
+                        if (onRadio != null && track.source == "youtube") {
+                            GlassButton("Radio", Icons.Filled.Radio, onClick = { onRadio(track) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 @Composable
 private fun LibraryResults(state: SearchUiState, callbacks: SearchCallbacks) {
     if (state.libraryResults.isEmpty()) {

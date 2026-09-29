@@ -1,6 +1,7 @@
 package com.lumisound.android.ui.screens.podcasts
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,19 +14,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,7 +38,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,15 +51,21 @@ import com.lumisound.android.AppContainer
 import com.lumisound.android.bridge.model.EpisodeProgressDto
 import com.lumisound.android.bridge.model.PodcastEpisodeDto
 import com.lumisound.android.bridge.model.PodcastSubscribeRequest
+import com.lumisound.android.bridge.model.PodcastSubscriptionDto
 import com.lumisound.android.playback.toPlayable
 import com.lumisound.android.ui.components.Artwork
+import com.lumisound.android.ui.components.EqualizerBars
+import com.lumisound.android.ui.components.Eyebrow
+import com.lumisound.android.ui.components.GlassButton
+import com.lumisound.android.ui.components.GlassIconButton
+import com.lumisound.android.ui.components.GlowButton
+import com.lumisound.android.ui.components.Loadable
 import com.lumisound.android.ui.components.LoadableSection
-import com.lumisound.android.ui.components.OneLine
+import com.lumisound.android.ui.components.LumiCard
+import com.lumisound.android.ui.components.RingProgress
 import com.lumisound.android.ui.components.friendlyError
 import com.lumisound.android.ui.components.rememberLoadable
 import com.lumisound.android.ui.screens.social.parseInstant
-import com.lumisound.android.ui.screens.stats.DetailHeader
-import com.lumisound.android.ui.screens.stats.ProgressLine
 import com.lumisound.android.ui.theme.LocalLumiPalette
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -79,7 +93,6 @@ fun PodcastDetailScreen(
         api.progress(feedUrl = feedUrl, limit = 200).associateBy { it.episodeGuid }
     }
     val subscription = rememberLoadable(feedUrl, "podcast.sub") { api.subscriptions().firstOrNull { it.feedUrl == feedUrl } }
-    var menuFor by remember { mutableStateOf<String?>(null) }
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
@@ -97,135 +110,170 @@ fun PodcastDetailScreen(
         container.player.play(playables, index, resumeAt)
     }
 
-    Column(Modifier.fillMaxSize()) {
-        DetailHeader(title, null, onBack)
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Artwork(model = artworkUrl, fallbackKey = feedUrl, size = 96.dp, corner = 16.dp)
-            Column(Modifier.weight(1f)) {
-                val count = episodes.state.valueOrNull?.size
-                Text(
-                    count?.let { "$it episodes" } ?: "Loading episodes…",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    PodcastDetailContent(
+        title = title,
+        feedUrl = feedUrl,
+        artworkUrl = artworkUrl,
+        episodes = episodes.state,
+        progress = progress.state.valueOrNull.orEmpty(),
+        subscription = subscription.state,
+        playingGuid = playback.episodeGuid,
+        onBack = onBack,
+        onRetry = episodes::reload,
+        onPlay = ::play,
+        onPlayNext = { episode -> episode.toPlayable(feedUrl, title, artworkUrl)?.let { container.player.playNext(it) } },
+        onToggleFollow = { sub ->
+            scope.launch {
+                try {
+                    if (sub != null) api.unsubscribe(sub.id) else api.subscribe(PodcastSubscribeRequest(feedUrl))
+                    subscription.reload()
+                    toast(if (sub != null) "Unfollowed $title" else "Following $title")
+                } catch (e: Exception) {
+                    toast(friendlyError(e))
+                }
+            }
+        },
+    )
+}
+
+/**
+ * A show's page: its cover blown up and blurred into the whole top of the screen, the sharp
+ * cover over it, Follow and Play latest, then every episode as a card whose play button is
+ * ringed by how far through it this account has got.
+ */
+@Composable
+fun PodcastDetailContent(
+    title: String,
+    feedUrl: String,
+    artworkUrl: String?,
+    episodes: Loadable<List<PodcastEpisodeDto>>,
+    progress: Map<String, EpisodeProgressDto>,
+    subscription: Loadable<PodcastSubscriptionDto?>,
+    playingGuid: String?,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onPlay: (List<PodcastEpisodeDto>, PodcastEpisodeDto, Boolean) -> Unit,
+    onPlayNext: (PodcastEpisodeDto) -> Unit,
+    onToggleFollow: (PodcastSubscriptionDto?) -> Unit,
+) {
+    val list = episodes.valueOrNull.orEmpty()
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
+        item {
+            Box(Modifier.fillMaxWidth().height(380.dp)) {
+                Box(Modifier.fillMaxWidth().height(300.dp).blur(48.dp)) {
+                    Artwork(artworkUrl, feedUrl, 600.dp, corner = 0.dp)
+                }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color(0xFF07080F))))
                 )
-                Spacer(Modifier.height(8.dp))
-                val sub = subscription.state.valueOrNull
-                if (sub != null) {
-                    OutlinedButton(onClick = {
-                        scope.launch {
-                            try {
-                                api.unsubscribe(sub.id)
-                                subscription.reload()
-                                toast("Unfollowed $title")
-                            } catch (e: Exception) {
-                                toast(friendlyError(e))
-                            }
-                        }
-                    }) { Text("Following") }
-                } else {
-                    Button(onClick = {
-                        scope.launch {
-                            try {
-                                api.subscribe(PodcastSubscribeRequest(feedUrl))
-                                subscription.reload()
-                                toast("Following $title")
-                            } catch (e: Exception) {
-                                toast(friendlyError(e))
-                            }
-                        }
-                    }) { Text("Follow") }
+                GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", Modifier.padding(14.dp), onClick = onBack)
+                Column(Modifier.align(Alignment.BottomCenter).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Artwork(artworkUrl, feedUrl, 180.dp, corner = 28.dp)
+                    Spacer(Modifier.height(14.dp))
+                    Eyebrow("Podcast", color = LocalLumiPalette.current.accent)
+                    Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-
-        LoadableSection(episodes.state, onRetry = episodes::reload) { list ->
-            val saved = progress.state.valueOrNull.orEmpty()
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
-                // Indexed keys: feeds repeat guids and titles more often than they should, and a
-                // duplicate key crashes a lazy list outright.
-                itemsIndexed(list, key = { index, it -> "$index|${it.guid ?: it.audioUrl}" }) { _, episode ->
-                    val guid = episode.guid ?: episode.audioUrl
-                    val isPlaying = guid != null && playback.episodeGuid == guid
-                    Box {
-                        EpisodeRow(
-                            episode = episode,
-                            progress = guid?.let { saved[it] },
-                            isPlaying = isPlaying,
-                            onClick = { play(list, episode, fromStart = false) },
-                            onMenu = { menuFor = guid },
-                        )
-                        DropdownMenu(expanded = menuFor != null && menuFor == guid, onDismissRequest = { menuFor = null }) {
-                            DropdownMenuItem(text = { Text("Play from the start") }, onClick = {
-                                menuFor = null
-                                play(list, episode, fromStart = true)
-                            })
-                            DropdownMenuItem(text = { Text("Play next") }, onClick = {
-                                menuFor = null
-                                episode.toPlayable(feedUrl, title, artworkUrl)?.let { container.player.playNext(it) }
-                            })
-                        }
-                    }
+        item {
+            val sub = subscription.valueOrNull
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (list.isNotEmpty()) {
+                    GlowButton("Play latest", Icons.Filled.PlayArrow, onClick = { onPlay(list, list.first(), false) }, modifier = Modifier.weight(1f))
+                }
+                if (sub != null) {
+                    GlassButton("Following", Icons.Filled.Check, onClick = { onToggleFollow(sub) }, modifier = Modifier.weight(1f))
+                } else {
+                    GlassButton("Follow", Icons.Filled.Add, onClick = { onToggleFollow(null) }, modifier = Modifier.weight(1f))
                 }
             }
+        }
+        item {
+            LoadableSection(episodes, onRetry = onRetry) { eps ->
+                Text(
+                    "${eps.size} episodes",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                )
+            }
+        }
+        itemsIndexed(list, key = { index, it -> "$index|${it.guid ?: it.audioUrl}" }) { _, episode ->
+            val guid = episode.guid ?: episode.audioUrl
+            EpisodeCard(
+                episode = episode,
+                progress = guid?.let { progress[it] },
+                isPlaying = guid != null && playingGuid == guid,
+                onPlay = { onPlay(list, episode, false) },
+                onFromStart = { onPlay(list, episode, true) },
+                onPlayNext = { onPlayNext(episode) },
+            )
         }
     }
 }
 
 @Composable
-private fun EpisodeRow(
+private fun EpisodeCard(
     episode: PodcastEpisodeDto,
     progress: EpisodeProgressDto?,
     isPlaying: Boolean,
-    onClick: () -> Unit,
-    onMenu: () -> Unit,
+    onPlay: () -> Unit,
+    onFromStart: () -> Unit,
+    onPlayNext: () -> Unit,
 ) {
     val palette = LocalLumiPalette.current
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            val date = parseInstant(episode.publishedAt)?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-            val length = episode.durationSeconds?.takeIf { it > 0 }?.let { "${(it + 59) / 60} min" }
-            Text(
-                listOfNotNull(date, length).joinToString(" · "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                episode.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isPlaying) palette.accent else MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val summary = stripHtml(episode.description)
-            if (summary.isNotBlank()) {
-                OneLine(summary, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    var menuOpen by remember { mutableStateOf(false) }
+    val fraction = progress?.takeIf { !it.completed && it.durationSeconds > 0 }?.let { (it.positionSeconds / it.durationSeconds).toFloat() } ?: 0f
+    LumiCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp), onClick = onPlay, corner = 20.dp) {
+        Row(Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                val date = parseInstant(episode.publishedAt)?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+                val length = episode.durationSeconds?.takeIf { it > 0 }?.let { "${(it + 59) / 60} min" }
+                Eyebrow(listOfNotNull(date, length).joinToString(" · "))
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    episode.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (isPlaying) palette.accent else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val summary = stripHtml(episode.description)
+                if (summary.isNotBlank()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
-            if (progress != null && !progress.completed && progress.durationSeconds > 0) {
-                Spacer(Modifier.height(6.dp))
-                ProgressLine((progress.positionSeconds / progress.durationSeconds).toFloat())
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onPlay), contentAlignment = Alignment.Center) {
+                when {
+                    isPlaying -> EqualizerBars(playing = true, color = palette.accent)
+                    progress?.completed == true -> Icon(Icons.Filled.CheckCircle, contentDescription = "Played", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> {
+                        RingProgress(fraction, Modifier.size(46.dp), stroke = 3.dp)
+                        Icon(Icons.Filled.PlayArrow, contentDescription = "Play", modifier = Modifier.size(22.dp))
+                    }
+                }
             }
-        }
-        when {
-            isPlaying -> Icon(Icons.Filled.GraphicEq, contentDescription = "Playing", tint = palette.accent)
-            progress?.completed == true -> Icon(Icons.Filled.CheckCircle, contentDescription = "Played", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            else -> Unit
-        }
-        IconButton(onClick = onMenu) {
-            Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(text = { Text("Play from the start") }, onClick = { menuOpen = false; onFromStart() })
+                    DropdownMenuItem(text = { Text("Play next") }, onClick = { menuOpen = false; onPlayNext() })
+                }
+            }
         }
     }
 }
 
-/** Feed descriptions are HTML; a one-line teaser wants the words only. */
+/** Feed descriptions are HTML; a teaser wants the words only. */
 fun stripHtml(html: String): String =
     html.replace(Regex("<[^>]*>"), " ")
         .replace("&nbsp;", " ")

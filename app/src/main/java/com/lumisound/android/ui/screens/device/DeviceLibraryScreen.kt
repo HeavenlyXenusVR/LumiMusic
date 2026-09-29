@@ -33,6 +33,9 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import com.lumisound.android.ui.components.ChipRow
+import com.lumisound.android.ui.components.GlassButton
+import com.lumisound.android.ui.components.ScreenTitle
+import androidx.compose.material.icons.filled.Refresh
 import com.lumisound.android.ui.components.EmptyState
 import com.lumisound.android.ui.components.NavChip
 import com.lumisound.android.ui.components.SearchField
@@ -69,7 +72,7 @@ private enum class Grouping(val label: String) { Songs("Songs"), Artists("Artist
  * whether a missing track is a scan problem or a sync problem.
  */
 @Composable
-fun DeviceLibraryScreen(container: AppContainer) {
+fun DeviceLibraryScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val scanState by container.libraryScanner.state.collectAsStateWithLifecycle()
     var grouping by remember { mutableStateOf(Grouping.Songs) }
@@ -110,26 +113,21 @@ fun DeviceLibraryScreen(container: AppContainer) {
     val palette = LocalLumiPalette.current
 
     Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Device", style = MaterialTheme.typography.displaySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill("${tracks.size} shown")
-                    scanState.lastDurationMs?.let { Pill("scanned in ${it}ms") }
-                }
-            }
-            TextButton(
-                enabled = !scanState.running,
+        ScreenTitle(
+            "This phone",
+            subtitle = "${tracks.size} tracks" + (scanState.lastDurationMs?.let { " · scanned in ${it}ms" } ?: ""),
+            eyebrow = "On-device music",
+            onBack = onBack,
+            trailing = {
                 // The permission launcher runs the scan itself when granted, so a denied
                 // prompt never leaves a scan half-started.
-                onClick = { permission.launch(AudioPermission.required) },
-            ) {
-                Text(if (scanState.running) "Scanning…" else "Rescan")
-            }
-        }
+                GlassButton(
+                    if (scanState.running) "Scanning…" else "Rescan",
+                    Icons.Filled.Refresh,
+                    onClick = { if (!scanState.running) permission.launch(AudioPermission.required) },
+                )
+            },
+        )
 
         ChipRow(
             Grouping.entries.map { entry ->

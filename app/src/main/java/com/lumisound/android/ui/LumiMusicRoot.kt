@@ -1,73 +1,60 @@
 package com.lumisound.android.ui
 
-import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumisound.android.AppContainer
 import com.lumisound.android.bridge.AccountState
+import com.lumisound.android.ui.aura.Aura
+import com.lumisound.android.ui.aura.AuraBackdrop
+import com.lumisound.android.ui.aura.LocalAura
+import com.lumisound.android.ui.aura.rememberTrackAura
+import com.lumisound.android.ui.components.DockTab
+import com.lumisound.android.ui.components.OrbitDock
 import com.lumisound.android.ui.screens.cloud.CloudLibraryScreen
+import com.lumisound.android.ui.screens.cloud.CloudView
 import com.lumisound.android.ui.screens.device.DeviceLibraryScreen
 import com.lumisound.android.ui.screens.diagnostics.DiagnosticsScreen
 import com.lumisound.android.ui.screens.downloads.DownloadsScreen
 import com.lumisound.android.ui.screens.eq.EqualizerScreen
+import com.lumisound.android.ui.screens.home.HomeScreen
 import com.lumisound.android.ui.screens.importer.ImportScreen
 import com.lumisound.android.ui.screens.library.AddToPlaylistDialog
-import com.lumisound.android.ui.screens.home.HomeScreen
 import com.lumisound.android.ui.screens.library.FavoritesScreen
-import com.lumisound.android.ui.screens.library.LibraryHub
+import com.lumisound.android.ui.screens.library.LibraryHomeScreen
 import com.lumisound.android.ui.screens.library.LibrarySection
+import com.lumisound.android.ui.screens.library.PlaylistsScreen
 import com.lumisound.android.ui.screens.notifications.NotificationsScreen
+import com.lumisound.android.ui.screens.nowplaying.NowPlayingSheet
 import com.lumisound.android.ui.screens.podcasts.PodcastDetailScreen
 import com.lumisound.android.ui.screens.podcasts.PodcastsScreen
 import com.lumisound.android.ui.screens.search.SearchScreen
 import com.lumisound.android.ui.screens.settings.ScrobblingScreen
+import com.lumisound.android.ui.screens.settings.SettingsScreen
+import com.lumisound.android.ui.screens.signin.SignInScreen
 import com.lumisound.android.ui.screens.social.ProfileScreen
 import com.lumisound.android.ui.screens.social.SocialScreen
 import com.lumisound.android.ui.screens.stats.AchievementsScreen
 import com.lumisound.android.ui.screens.stats.RewindScreen
 import com.lumisound.android.ui.screens.stats.StatsScreen
-import com.lumisound.android.ui.screens.library.PlaylistsScreen
-import com.lumisound.android.ui.screens.nowplaying.MiniPlayer
-import com.lumisound.android.ui.screens.nowplaying.NowPlayingSheet
-import com.lumisound.android.ui.screens.queue.QueueSheet
-import com.lumisound.android.ui.screens.settings.SettingsScreen
-import com.lumisound.android.ui.screens.signin.SignInScreen
 import com.lumisound.android.ui.theme.LocalLumiPalette
-import kotlinx.coroutines.launch
-
-private enum class Tab(val label: String, val icon: ImageVector) {
-    Home("Home", Icons.Filled.Home),
-    Search("Search", Icons.Filled.Search),
-    Library("Library", Icons.Filled.LibraryMusic),
-    Friends("Friends", Icons.Filled.People),
-    Settings("Settings", Icons.Filled.Settings),
-}
 
 /** A track waiting to be filed into a playlist. */
 private data class PendingPlaylistAdd(
@@ -94,20 +81,23 @@ fun LumiMusicRoot(container: AppContainer) {
     }
 }
 
+/**
+ * The signed-in app: the aura behind everything, the current screen, and the Orbit dock.
+ *
+ * The aura is computed once, here, from whatever is playing and handed down through
+ * [LocalAura], so every screen glows with the same track without asking for it.
+ */
 @Composable
 private fun SignedInShell(container: AppContainer) {
     val palette = LocalLumiPalette.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var tab by rememberSaveable { mutableStateOf(Tab.Home) }
-    var librarySection by rememberSaveable { mutableStateOf(LibrarySection.Cloud) }
+    var tab by rememberSaveable { mutableStateOf(DockTab.Home) }
     // Screens pushed over the current tab; back pops one, and switching tabs clears them.
     var stack by remember { mutableStateOf(listOf<Route>()) }
     val push: (Route) -> Unit = { stack = stack + it }
     val pop: () -> Unit = { stack = stack.dropLast(1) }
     BackHandler(enabled = stack.isNotEmpty(), onBack = pop)
-    BackHandler(enabled = stack.isEmpty() && tab != Tab.Home) { tab = Tab.Home }
+    BackHandler(enabled = stack.isEmpty() && tab != DockTab.Home) { tab = DockTab.Home }
     var showNowPlaying by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
     var pendingAdd by remember { mutableStateOf<PendingPlaylistAdd?>(null) }
     val rawPlayback by container.player.state.collectAsStateWithLifecycle()
@@ -115,105 +105,54 @@ private fun SignedInShell(container: AppContainer) {
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val playback = rawPlayback.copy(isFavorite = rawPlayback.serverPath in favoriteIds)
 
-    Scaffold(
-        // The page gradient lives on the scaffold so every screen shares one background
-        // rather than each drawing its own flat panel.
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        modifier = Modifier.fillMaxSize().background(palette.pageBrush),
-        bottomBar = {
-            Column {
-                if (playback.hasQueue) {
-                    MiniPlayer(
-                        state = playback,
-                        onToggle = container.player::togglePlayPause,
-                        onNext = { container.player.next() },
-                        onExpand = { showNowPlaying = true },
-                        onFavorite = {
-                            val path = playback.serverPath ?: return@MiniPlayer
-                            scope.launch {
-                                container.libraryRepository.toggleFavorite(
-                                    path, playback.title, playback.artist, null,
-                                )
-                            }
-                        },
+    val aura = rememberTrackAura(
+        artworkModel = playback.artworkUrl,
+        fallbackKey = if (playback.hasQueue) playback.mediaId ?: playback.title.orEmpty() else "",
+        idle = Aura.forAccent(palette.accent),
+    )
+
+    CompositionLocalProvider(LocalAura provides aura) {
+        AuraBackdrop(aura, Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                modifier = Modifier.fillMaxSize(),
+                bottomBar = {
+                    OrbitDock(
+                        selected = tab.takeIf { stack.isEmpty() },
+                        onSelect = { tab = it; stack = emptyList() },
+                        playback = playback,
+                        onOpenPlayer = { showNowPlaying = true },
+                        onTogglePlay = container.player::togglePlayPause,
+                        modifier = Modifier.navigationBarsPadding(),
                     )
-                }
-                NavigationBar(
-                    containerColor = palette.elevatedSurface,
-                    tonalElevation = 0.dp,
-                ) {
-                    Tab.entries.forEach { entry ->
-                        NavigationBarItem(
-                            selected = tab == entry && stack.isEmpty(),
-                            onClick = { tab = entry; stack = emptyList() },
-                            icon = { Icon(entry.icon, contentDescription = entry.label) },
-                            label = { Text(entry.label, style = MaterialTheme.typography.labelSmall) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = palette.accent,
-                                selectedTextColor = palette.accent,
-                                indicatorColor = palette.accentWash,
-                            ),
-                        )
-                    }
-                }
-            }
-        }
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            when (val route = stack.lastOrNull()) {
-                Route.Equalizer -> EqualizerScreen(container)
-                Route.Downloads -> DownloadsScreen(container)
-                Route.Diagnostics -> DiagnosticsScreen(container)
-                Route.Stats -> StatsScreen(container, onBack = pop)
-                Route.Rewind -> RewindScreen(container, onBack = pop)
-                Route.Achievements -> AchievementsScreen(container, onBack = pop)
-                Route.Notifications -> NotificationsScreen(container, onBack = pop)
-                Route.Scrobbling -> ScrobblingScreen(container, onBack = pop)
-                Route.Podcasts -> PodcastsScreen(container, onOpen = push, onBack = pop)
-                is Route.Podcast -> PodcastDetailScreen(container, route.feedUrl, route.title, route.artworkUrl, onBack = pop)
-                is Route.Profile -> ProfileScreen(container, route.userId, route.name, onBack = pop)
-                null -> when (tab) {
-                    Tab.Home -> HomeScreen(
-                        container = container,
-                        onOpen = push,
-                        onOpenFriends = { tab = Tab.Friends },
-                    )
-                    Tab.Search -> SearchScreen(container)
-                    Tab.Library -> LibraryHub(librarySection, onSectionChange = { librarySection = it }) { section ->
-                        when (section) {
-                            LibrarySection.Cloud -> CloudLibraryScreen(
+                },
+            ) { padding ->
+                Box(Modifier.fillMaxSize().padding(padding)) {
+                    val screenKey: Any = stack.lastOrNull() ?: tab
+                    AnimatedContent(
+                        targetState = screenKey,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "screen",
+                    ) { key ->
+                        Box(Modifier.fillMaxSize()) {
+                            Screen(
+                                key = key,
                                 container = container,
-                                onOpenImport = { showImport = true },
-                                onAddToPlaylist = { title, artist, album, songId, duration ->
-                                    pendingAdd = PendingPlaylistAdd(title, artist, album, songId, duration)
-                                },
+                                push = push,
+                                pop = pop,
+                                openTab = { tab = it; stack = emptyList() },
+                                openImport = { showImport = true },
+                                addToPlaylist = { pendingAdd = it },
                             )
-                            LibrarySection.Device -> DeviceLibraryScreen(container)
-                            LibrarySection.Favorites -> FavoritesScreen(container)
-                            LibrarySection.Playlists -> PlaylistsScreen(container)
-                            LibrarySection.Podcasts -> PodcastsScreen(container, onOpen = push, onBack = null)
                         }
                     }
-                    Tab.Friends -> SocialScreen(container, onOpen = push)
-                    Tab.Settings -> SettingsScreen(
-                        container = container,
-                        onOpenImport = { showImport = true },
-                        onOpen = push,
-                    )
                 }
             }
         }
     }
 
     if (showNowPlaying) {
-        NowPlayingSheet(
-            container = container,
-            onOpenQueue = { showNowPlaying = false; showQueue = true },
-            onDismiss = { showNowPlaying = false },
-        )
-    }
-    if (showQueue) {
-        QueueSheet(container, onDismiss = { showQueue = false })
+        NowPlayingSheet(container = container, onDismiss = { showNowPlaying = false })
     }
     if (showImport) {
         ImportScreen(container, onDismiss = { showImport = false })
@@ -228,5 +167,54 @@ private fun SignedInShell(container: AppContainer) {
             durationSeconds = pending.durationSeconds,
             onDismiss = { pendingAdd = null },
         )
+    }
+}
+
+@Composable
+private fun Screen(
+    key: Any,
+    container: AppContainer,
+    push: (Route) -> Unit,
+    pop: () -> Unit,
+    openTab: (DockTab) -> Unit,
+    openImport: () -> Unit,
+    addToPlaylist: (PendingPlaylistAdd) -> Unit,
+) {
+    when (key) {
+        DockTab.Home -> HomeScreen(container = container, onOpen = push, onOpenFriends = { openTab(DockTab.Friends) })
+        DockTab.Search -> SearchScreen(container)
+        DockTab.Library -> LibraryHomeScreen(
+            container = container,
+            onOpen = { push(Route.Library(it)) },
+            onOpenPlaylist = { push(Route.Library(LibrarySection.Playlists, it)) },
+        )
+        DockTab.Friends -> SocialScreen(container, onOpen = push)
+        Route.Settings -> SettingsScreen(container = container, onOpenImport = openImport, onOpen = push, onBack = pop)
+        is Route.Library -> when (key.section) {
+            LibrarySection.Cloud, LibrarySection.Offline -> CloudLibraryScreen(
+                container = container,
+                onOpenImport = openImport,
+                onAddToPlaylist = { title, artist, album, songId, duration ->
+                    addToPlaylist(PendingPlaylistAdd(title, artist, album, songId, duration))
+                },
+                initialView = if (key.section == LibrarySection.Offline) CloudView.Offline else CloudView.All,
+                onBack = pop,
+            )
+            LibrarySection.Device -> DeviceLibraryScreen(container, onBack = pop)
+            LibrarySection.Favorites -> FavoritesScreen(container, onBack = pop)
+            LibrarySection.Playlists -> PlaylistsScreen(container, onBack = pop, initialPlaylistId = key.playlistId)
+            LibrarySection.Podcasts -> PodcastsScreen(container, onOpen = push, onBack = pop)
+        }
+        Route.Equalizer -> EqualizerScreen(container, onBack = pop)
+        Route.Downloads -> DownloadsScreen(container, onBack = pop)
+        Route.Diagnostics -> DiagnosticsScreen(container, onBack = pop)
+        Route.Stats -> StatsScreen(container, onBack = pop)
+        Route.Rewind -> RewindScreen(container, onBack = pop)
+        Route.Achievements -> AchievementsScreen(container, onBack = pop)
+        Route.Notifications -> NotificationsScreen(container, onBack = pop)
+        Route.Scrobbling -> ScrobblingScreen(container, onBack = pop)
+        Route.Podcasts -> PodcastsScreen(container, onOpen = push, onBack = pop)
+        is Route.Podcast -> PodcastDetailScreen(container, key.feedUrl, key.title, key.artworkUrl, onBack = pop)
+        is Route.Profile -> ProfileScreen(container, key.userId, key.name, onBack = pop)
     }
 }

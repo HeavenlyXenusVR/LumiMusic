@@ -39,6 +39,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.graphics.Brush
+import com.lumisound.android.ui.aura.Aura
+import com.lumisound.android.ui.components.Eyebrow
+import com.lumisound.android.ui.components.GlassPanel
+import com.lumisound.android.ui.components.RingProgress
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -98,63 +106,125 @@ fun AchievementsScreen(container: AppContainer, onBack: () -> Unit) {
     AchievementsContent(achievements.state, onBack, achievements::reload)
 }
 
+/** A hexagon, for badge medallions. */
+private val Hexagon = GenericShape { size, _ ->
+    val w = size.width
+    val h = size.height
+    moveTo(w * 0.5f, 0f)
+    lineTo(w, h * 0.25f)
+    lineTo(w, h * 0.75f)
+    lineTo(w * 0.5f, h)
+    lineTo(0f, h * 0.75f)
+    lineTo(0f, h * 0.25f)
+    close()
+}
+
+/**
+ * Achievements as a trophy case: a level ring for how many are earned, the single closest
+ * badge still to win (with how close), then every badge as a hexagonal medallion -- struck
+ * in colour when earned, a dark blank with a lock and a progress bar when not.
+ */
 @Composable
 fun AchievementsContent(achievements: Loadable<AchievementsDto>, onBack: () -> Unit, onRetry: () -> Unit) {
     val palette = LocalLumiPalette.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 28.dp)) {
-        DetailHeader("Achievements", "Earned from your listening on every device", onBack)
+        DetailHeader("Trophy case", null, onBack, eyebrow = "Achievements")
         LoadableSection(achievements, onRetry) { data ->
             val earned = data.badges.toSet()
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("${earned.size} / ${ALL_BADGES.size}", "Badges earned", Icons.Filled.Star, SectionTint.Device, Modifier.weight(1f))
-                StatTile("${data.currentStreakDays}d", "Current streak", Icons.Filled.LocalFireDepartment, SectionTint.Favorites, Modifier.weight(1f))
+            val fraction = earned.size / ALL_BADGES.size.toFloat()
+
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
+                    RingProgress(fraction, Modifier.size(132.dp), stroke = 10.dp)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Eyebrow("Level")
+                        Text("${earned.size}", style = MaterialTheme.typography.displayMedium)
+                    }
+                }
+                Spacer(Modifier.width(18.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("${earned.size} of ${ALL_BADGES.size} badges", style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${data.currentStreakDays}-day streak · best ${data.longestStreakDays}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            Spacer(Modifier.height(14.dp))
-            ALL_BADGES.sortedByDescending { it.id in earned }.chunked(2).forEach { pair ->
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    pair.forEach { badge ->
-                        val unlocked = badge.id in earned
-                        LumiCard(Modifier.weight(1f)) {
-                            Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    Modifier
-                                        .size(52.dp)
-                                        .clip(CircleShape)
-                                        .background(if (unlocked) palette.accent.copy(alpha = 0.22f) else palette.hairline),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        if (unlocked) badge.icon else Icons.Filled.Lock,
-                                        contentDescription = null,
-                                        tint = if (unlocked) palette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp),
-                                    )
-                                }
+
+            // The nearest badge not yet earned that has a measurable distance.
+            ALL_BADGES
+                .filter { it.id !in earned && it.progress != null }
+                .maxByOrNull { it.progress!!(data).coerceAtMost(0.999f) }
+                ?.let { next ->
+                    Spacer(Modifier.height(18.dp))
+                    GlassPanel {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Medallion(next, unlocked = false, size = 58.dp)
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Eyebrow("Next up", color = palette.accent)
+                                Text(next.title, style = MaterialTheme.typography.titleMedium)
+                                Text(next.requirement, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(8.dp))
-                                OneLine(badge.title, style = MaterialTheme.typography.labelLarge)
+                                ProgressLine(next.progress!!(data))
+                            }
+                        }
+                    }
+                }
+
+            Spacer(Modifier.height(20.dp))
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                ALL_BADGES.sortedByDescending { it.id in earned }.chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { badge ->
+                            val unlocked = badge.id in earned
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Medallion(badge, unlocked, 78.dp)
+                                Spacer(Modifier.height(8.dp))
                                 Text(
-                                    badge.requirement,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    badge.title,
+                                    style = MaterialTheme.typography.labelLarge,
                                     textAlign = TextAlign.Center,
-                                    minLines = 2,
+                                    color = if (unlocked) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 2,
                                 )
                                 if (!unlocked) {
                                     badge.progress?.let { progress ->
-                                        Spacer(Modifier.height(8.dp))
-                                        ProgressLine(progress(data))
+                                        Spacer(Modifier.height(5.dp))
+                                        ProgressLine(progress(data), Modifier.padding(horizontal = 14.dp))
                                     }
                                 }
                             }
                         }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
-                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun Medallion(badge: BadgeSpec, unlocked: Boolean, size: androidx.compose.ui.unit.Dp) {
+    val palette = LocalLumiPalette.current
+    val tint = Aura.forKey(badge.id).primary
+    Box(
+        Modifier
+            .size(size)
+            .clip(Hexagon)
+            .background(
+                if (unlocked) Brush.linearGradient(listOf(tint, palette.accent))
+                else Brush.linearGradient(listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.03f)))
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (unlocked) badge.icon else Icons.Filled.Lock,
+            contentDescription = null,
+            tint = if (unlocked) Color.White else Color.White.copy(alpha = 0.35f),
+            modifier = Modifier.size(size * 0.4f),
+        )
     }
 }

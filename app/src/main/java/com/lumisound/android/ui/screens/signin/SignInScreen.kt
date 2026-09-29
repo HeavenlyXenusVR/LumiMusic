@@ -1,19 +1,26 @@
 package com.lumisound.android.ui.screens.signin
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,19 +29,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.lumisound.android.ui.theme.LocalLumiPalette
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -42,7 +41,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lumisound.android.AppContainer
 import com.lumisound.android.bridge.SignInResult
+import com.lumisound.android.ui.aura.Aura
+import com.lumisound.android.ui.aura.AuraBackdrop
+import com.lumisound.android.ui.components.Eyebrow
+import com.lumisound.android.ui.components.GlassPanel
+import com.lumisound.android.ui.components.GlowButton
+import com.lumisound.android.ui.components.SegmentedPill
+import com.lumisound.android.ui.components.VinylDisc
+import com.lumisound.android.ui.theme.LocalLumiPalette
 import kotlinx.coroutines.launch
+
+enum class SignInMode(val label: String) { SignIn("Sign in"), Register("Create account"), TwoFactor("Verify") }
+
+data class SignInForm(
+    val mode: SignInMode = SignInMode.SignIn,
+    val username: String = "",
+    val password: String = "",
+    val email: String = "",
+    val displayName: String = "",
+    val code: String = "",
+    val busy: Boolean = false,
+    val error: String? = null,
+)
 
 /**
  * Sign-in, registration and the 2FA continuation, all against the bridge's own
@@ -53,181 +73,171 @@ import kotlinx.coroutines.launch
 @Composable
 fun SignInScreen(container: AppContainer, checkingSession: Boolean) {
     val scope = rememberCoroutineScope()
-    val palette = LocalLumiPalette.current
-
-    var mode by remember { mutableStateOf(Mode.SignIn) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var displayName by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
+    var form by remember { mutableStateOf(SignInForm()) }
     var pendingToken by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
 
     fun handle(result: SignInResult) {
-        busy = false
-        when (result) {
-            is SignInResult.Success -> {
-                error = null
-                pendingToken = null
-            }
-            is SignInResult.TwoFactorRequired -> {
-                error = null
-                pendingToken = result.pendingToken
-                mode = Mode.TwoFactor
-            }
-            is SignInResult.Failure -> error = result.message
+        form = when (result) {
+            is SignInResult.Success -> form.copy(busy = false, error = null).also { pendingToken = null }
+            is SignInResult.TwoFactorRequired -> form.copy(busy = false, error = null, mode = SignInMode.TwoFactor).also { pendingToken = result.pendingToken }
+            is SignInResult.Failure -> form.copy(busy = false, error = result.message)
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.pageBrush)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 48.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
+    SignInContent(
+        form = form,
+        checkingSession = checkingSession,
+        onChange = { form = it },
+        onSubmit = {
+            form = form.copy(busy = true, error = null)
+            scope.launch {
+                val result = when (form.mode) {
+                    SignInMode.SignIn -> container.account.signIn(form.username, form.password)
+                    SignInMode.Register -> container.account.register(form.username, form.email, form.password, form.displayName)
+                    SignInMode.TwoFactor -> container.account.completeTwoFactor(pendingToken.orEmpty(), form.code)
+                }
+                handle(result)
+            }
+        },
+    )
+}
+
+/**
+ * The first screen anyone sees, so it carries the whole idea of the redesign: the aura
+ * already moving, a record already turning, and the form on a sheet of glass over both.
+ */
+@Composable
+fun SignInContent(form: SignInForm, checkingSession: Boolean, onChange: (SignInForm) -> Unit, onSubmit: () -> Unit) {
+    val palette = LocalLumiPalette.current
+    AuraBackdrop(Aura.forAccent(palette.accent), Modifier.fillMaxSize(), intensity = 1.4f) {
+        Column(
             Modifier
-                .size(74.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(palette.accent, palette.accent.copy(alpha = 0.55f))
-                    )
-                ),
-            contentAlignment = Alignment.Center,
+                .fillMaxSize()
+                .systemBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                Icons.Filled.GraphicEq,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(36.dp),
-            )
-        }
-        Spacer(Modifier.height(18.dp))
-        Text("LumiMusic", style = MaterialTheme.typography.displaySmall)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Your Lumisound account, on Android. Sign in with the same username and password you use on iPhone.",
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(28.dp))
-
-        if (checkingSession) {
-            CircularProgressIndicator()
-            return@Column
-        }
-
-        when (mode) {
-            Mode.TwoFactor -> {
-                Text("Enter the 6-digit code from your authenticator app.", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it.filter(Char::isDigit).take(6) },
-                    label = { Text("Authentication code") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.size(210.dp).background(Brush.radialGradient(listOf(palette.accent.copy(alpha = 0.45f), Color.Transparent)), CircleShape))
+                VinylDisc(artworkModel = null, fallbackKey = "lumimusic", size = 150.dp, spinning = true)
             }
-            else -> {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Username") },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (mode == Mode.Register) {
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
-                        supportingText = { Text("Required, and checked for a real mail domain.") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = displayName,
-                        onValueChange = { displayName = it },
-                        label = { Text("Display name (optional)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-
-        error?.let {
-            Spacer(Modifier.height(12.dp))
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Button(
-            onClick = {
-                busy = true
-                error = null
-                scope.launch {
-                    val result = when (mode) {
-                        Mode.SignIn -> container.account.signIn(username, password)
-                        Mode.Register -> container.account.register(username, email, password, displayName)
-                        Mode.TwoFactor -> container.account.completeTwoFactor(pendingToken.orEmpty(), code)
-                    }
-                    handle(result)
-                }
-            },
-            enabled = !busy && when (mode) {
-                Mode.TwoFactor -> code.length >= 6
-                Mode.Register -> username.isNotBlank() && password.isNotBlank() && email.isNotBlank()
-                Mode.SignIn -> username.isNotBlank() && password.isNotBlank()
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
             Text(
-                when {
-                    busy -> "Working…"
-                    mode == Mode.Register -> "Create account"
-                    mode == Mode.TwoFactor -> "Verify"
-                    else -> "Sign in"
-                }
+                "LumiMusic",
+                style = MaterialTheme.typography.displayMedium.merge(
+                    TextStyle(brush = Brush.horizontalGradient(listOf(Color.White, palette.accent.copy(alpha = 0.9f).compositeWhite())))
+                ),
             )
-        }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Your Lumisound account, on Android.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.78f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp),
+            )
+            Spacer(Modifier.height(26.dp))
 
-        Spacer(Modifier.height(8.dp))
-        when (mode) {
-            Mode.SignIn -> TextButton(onClick = { mode = Mode.Register; error = null }) {
-                Text("No account yet? Create one")
+            if (checkingSession) {
+                CircularProgressIndicator(color = Color.White)
+                return@Column
             }
-            Mode.Register -> TextButton(onClick = { mode = Mode.SignIn; error = null }) {
-                Text("I already have a Lumisound account")
+
+            if (form.mode != SignInMode.TwoFactor) {
+                SegmentedPill(
+                    listOf(SignInMode.SignIn, SignInMode.Register),
+                    form.mode,
+                    { it.label },
+                    { onChange(form.copy(mode = it, error = null)) },
+                )
+                Spacer(Modifier.height(14.dp))
             }
-            Mode.TwoFactor -> TextButton(onClick = { mode = Mode.SignIn; code = ""; error = null }) {
-                Text("Start over")
+
+            GlassPanel {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    when (form.mode) {
+                        SignInMode.TwoFactor -> {
+                            Eyebrow("Two-step verification", color = palette.accent)
+                            Text("Enter the 6-digit code from your authenticator app.", style = MaterialTheme.typography.bodyMedium)
+                            Field(form.code, { onChange(form.copy(code = it.filter(Char::isDigit).take(6))) }, "Authentication code", KeyboardType.NumberPassword, password = true)
+                        }
+                        else -> {
+                            Field(form.username, { onChange(form.copy(username = it)) }, "Username")
+                            if (form.mode == SignInMode.Register) {
+                                Field(form.email, { onChange(form.copy(email = it)) }, "Email", KeyboardType.Email)
+                                Field(form.displayName, { onChange(form.copy(displayName = it)) }, "Display name (optional)")
+                            }
+                            Field(form.password, { onChange(form.copy(password = it)) }, "Password", KeyboardType.Password, password = true)
+                        }
+                    }
+                    form.error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    val ready = !form.busy && when (form.mode) {
+                        SignInMode.TwoFactor -> form.code.length >= 6
+                        SignInMode.Register -> form.username.isNotBlank() && form.password.isNotBlank() && form.email.isNotBlank()
+                        SignInMode.SignIn -> form.username.isNotBlank() && form.password.isNotBlank()
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    GlowButton(
+                        when {
+                            form.busy -> "Working…"
+                            form.mode == SignInMode.Register -> "Create account"
+                            form.mode == SignInMode.TwoFactor -> "Verify"
+                            else -> "Sign in"
+                        },
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        onClick = { if (ready) onSubmit() },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            if (form.mode == SignInMode.TwoFactor) {
+                TextButton(onClick = { onChange(SignInForm(username = form.username)) }) { Text("Start over", color = Color.White) }
+            } else {
+                Text(
+                    "Same username and password as Lumisound on iPhone.\nAn account made here works there too.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }
 }
 
-private enum class Mode { SignIn, Register, TwoFactor }
+@Composable
+private fun Field(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    password: Boolean = false,
+) {
+    val palette = LocalLumiPalette.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Next),
+        shape = MaterialTheme.shapes.medium,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = palette.accent,
+            unfocusedBorderColor = Color.White.copy(alpha = 0.18f),
+            focusedLabelColor = palette.accent,
+            cursorColor = palette.accent,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+private fun Color.compositeWhite(): Color = Color(
+    red = red * alpha + (1 - alpha),
+    green = green * alpha + (1 - alpha),
+    blue = blue * alpha + (1 - alpha),
+    alpha = 1f,
+)

@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import com.lumisound.android.bridge.model.DayStatDto
 import com.lumisound.android.ui.components.LumiCard
+import com.lumisound.android.ui.components.ScreenTitle
 import com.lumisound.android.ui.components.OneLine
 import com.lumisound.android.ui.theme.LocalLumiPalette
 import java.time.DayOfWeek
@@ -43,25 +44,16 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 
-/** A pushed screen's header: back arrow, large title, optional line under it. */
+/** A pushed screen's header: the shared [ScreenTitle] with a back button. */
 @Composable
-fun DetailHeader(title: String, subtitle: String? = null, onBack: () -> Unit, trailing: (@Composable () -> Unit)? = null) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 6.dp, end = 12.dp, top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-        }
-        Spacer(Modifier.weight(1f))
-        trailing?.invoke()
-    }
-    Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp)) {
-        Text(title, style = MaterialTheme.typography.displaySmall)
-        subtitle?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+fun DetailHeader(
+    title: String,
+    subtitle: String? = null,
+    onBack: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+    eyebrow: String? = null,
+) {
+    ScreenTitle(title, subtitle = subtitle, eyebrow = eyebrow, onBack = onBack, trailing = trailing)
 }
 
 /** One big number with a label, in a card -- the unit every stats screen is built from. */

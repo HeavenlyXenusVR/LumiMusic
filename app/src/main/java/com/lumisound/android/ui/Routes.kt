@@ -6,6 +6,9 @@ package com.lumisound.android.ui
  * gesture pops it.
  */
 sealed interface Route {
+    data object Settings : Route
+    /** A Library crate; [playlistId] opens straight into one playlist. */
+    data class Library(val section: com.lumisound.android.ui.screens.library.LibrarySection, val playlistId: String? = null) : Route
     data object Equalizer : Route
     data object Downloads : Route
     data object Diagnostics : Route

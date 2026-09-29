@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -36,10 +37,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lumisound.android.AppContainer
 import com.lumisound.android.bridge.model.LifetimeStatsDto
 import com.lumisound.android.bridge.model.ReviewDto
-import com.lumisound.android.ui.components.ChipRow
+import com.lumisound.android.ui.aura.Aura
+import com.lumisound.android.ui.components.Eyebrow
+import com.lumisound.android.ui.components.SegmentedPill
+import com.lumisound.android.ui.components.storyTaps
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.text.style.TextOverflow
 import com.lumisound.android.ui.components.Loadable
 import com.lumisound.android.ui.components.LoadableSection
 import com.lumisound.android.ui.components.NavChip
@@ -111,6 +120,7 @@ fun RewindSummary.asShareText(): String = buildString {
 fun RewindScreen(container: AppContainer, onBack: () -> Unit) {
     val context = LocalContext.current
     var period by rememberSaveable { mutableStateOf(RewindPeriod.Month) }
+    var page by rememberSaveable(period) { mutableIntStateOf(0) }
     val api = container.http.discovery
     val summary = rememberLoadable(period, "rewind.$period") {
         when (period) {
@@ -122,6 +132,8 @@ fun RewindScreen(container: AppContainer, onBack: () -> Unit) {
     RewindContent(
         period = period,
         summary = summary.state,
+        page = page,
+        onPageChange = { page = it },
         onPeriodChange = { period = it },
         onBack = onBack,
         onRetry = summary::reload,
@@ -135,114 +147,167 @@ fun RewindScreen(container: AppContainer, onBack: () -> Unit) {
     )
 }
 
+/** One page of the Rewind story. */
+private sealed interface Story {
+    data class Hours(val summary: RewindSummary) : Story
+    data class TopArtist(val name: String, val others: List<String>) : Story
+    data class TopTracks(val tracks: List<Pair<String, String?>>) : Story
+    data class Numbers(val summary: RewindSummary) : Story
+    data class Peak(val day: String) : Story
+    data class Wrap(val summary: RewindSummary) : Story
+}
+
+private fun storiesFor(s: RewindSummary): List<Story> = buildList {
+    add(Story.Hours(s))
+    s.topArtists.firstOrNull()?.let { add(Story.TopArtist(it, s.topArtists.drop(1).take(4))) }
+    if (s.topTracks.isNotEmpty()) add(Story.TopTracks(s.topTracks.take(5)))
+    if (s.distinctArtists != null || s.distinctTracks != null || s.averageBpm != null) add(Story.Numbers(s))
+    s.peakDay?.let { add(Story.Peak(it)) }
+    add(Story.Wrap(s))
+}
+
+/**
+ * Rewind told as a story: one fact per page, each on its own colour, with the progress
+ * segments across the top. Tap the right of the card to go on, the left to go back; the
+ * last page is the whole recap on one card with Share. A single long card said everything
+ * at once and so made nothing land.
+ */
 @Composable
 fun RewindContent(
     period: RewindPeriod,
     summary: Loadable<RewindSummary>,
+    page: Int,
+    onPageChange: (Int) -> Unit,
     onPeriodChange: (RewindPeriod) -> Unit,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onShare: (String) -> Unit,
 ) {
-    val palette = LocalLumiPalette.current
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 28.dp)) {
-        DetailHeader("Rewind", "Your listening, wrapped", onBack, trailing = {
-            summary.valueOrNull?.let { s ->
-                IconButton(onClick = { onShare(s.asShareText()) }) {
-                    Icon(Icons.Filled.Share, contentDescription = "Share")
-                }
-            }
-        })
-        ChipRow(
-            RewindPeriod.entries.map { entry ->
-                NavChip(
-                    label = entry.label,
-                    icon = when (entry) {
-                        RewindPeriod.AllTime -> Icons.Filled.AllInclusive
-                        RewindPeriod.Month -> Icons.Filled.CalendarToday
-                        RewindPeriod.Year -> Icons.Filled.CalendarMonth
-                    },
-                    selected = entry == period,
-                    onClick = { onPeriodChange(entry) },
-                )
-            }
-        )
+    Column(Modifier.fillMaxSize().padding(bottom = 12.dp)) {
+        DetailHeader("Rewind", null, onBack, eyebrow = "Your listening, wrapped")
+        SegmentedPill(RewindPeriod.entries, period, { it.label }, onPeriodChange)
+        Spacer(Modifier.height(14.dp))
         LoadableSection(summary, onRetry) { s ->
+            val stories = storiesFor(s)
+            val current = page.coerceIn(0, stories.lastIndex)
+            val aura = Aura.forKey("rewind-${period.name}-$current")
             Box(
                 Modifier
                     .fillMaxWidth()
+                    .height(540.dp)
                     .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(palette.accent, palette.accent.copy(alpha = 0.55f), SectionTint.Offline.copy(alpha = 0.7f))
-                        )
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Brush.linearGradient(listOf(aura.primary, aura.secondary, Color(0xFF12101E))))
+                    .storyTaps(
+                        onBack = { if (current > 0) onPageChange(current - 1) },
+                        onForward = { if (current < stories.lastIndex) onPageChange(current + 1) },
                     )
-                    .padding(22.dp)
             ) {
-                Column {
-                    Text(s.heading.uppercase(), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.85f))
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        s.listenSeconds.asListeningTime(),
-                        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Black),
-                        color = Color.White,
-                    )
-                    Text("of music · ${"%,d".format(s.plays)} plays", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                // Progress segments.
+                Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    stories.indices.forEach { i ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = if (i <= current) 0.95f else 0.3f))
+                        )
+                    }
+                }
+                Column(Modifier.align(Alignment.BottomStart).padding(24.dp)) {
+                    StoryPage(stories[current], s, period, onShare)
+                }
+            }
+            Text(
+                "Tap the right side to continue · ${current + 1} of ${stories.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+    }
+}
 
-                    if (s.topArtists.isNotEmpty()) {
-                        Spacer(Modifier.height(18.dp))
-                        Text("TOP ARTISTS", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f))
-                        s.topArtists.take(5).forEachIndexed { index, artist ->
-                            OneLine("${index + 1}. $artist", style = MaterialTheme.typography.titleSmall, color = Color.White)
-                        }
-                    }
-                    if (s.topTracks.isNotEmpty()) {
-                        Spacer(Modifier.height(14.dp))
-                        Text("TOP TRACKS", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f))
-                        s.topTracks.take(5).forEachIndexed { index, (title, artist) ->
-                            OneLine(
-                                "${index + 1}. $title" + (artist?.takeIf { it.isNotBlank() && it != title }?.let { " — $it" } ?: ""),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                            )
-                        }
-                    }
-
-                    val extras = listOfNotNull(
-                        s.distinctArtists?.let { "$it" to "artists" },
-                        s.distinctTracks?.let { "$it" to "tracks" },
-                        s.averageBpm?.let { "${it.toInt()}" to "avg BPM" },
-                    )
-                    if (extras.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                            extras.forEach { (value, label) ->
-                                Column {
-                                    Text(value, style = MaterialTheme.typography.titleLarge, color = Color.White)
-                                    Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-                                }
-                            }
-                        }
-                    }
-                    s.peakDay?.let {
-                        Spacer(Modifier.height(14.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Peak day", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-                            Spacer(Modifier.width(8.dp))
-                            Text(it, style = MaterialTheme.typography.labelLarge, color = Color.White)
-                        }
+@Composable
+private fun StoryPage(story: Story, s: RewindSummary, period: RewindPeriod, onShare: (String) -> Unit) {
+    val white = Color.White
+    val soft = Color.White.copy(alpha = 0.8f)
+    val huge = MaterialTheme.typography.displayLarge.copy(fontSize = 96.sp, lineHeight = 92.sp)
+    when (story) {
+        is Story.Hours -> {
+            Eyebrow(if (period == RewindPeriod.AllTime) "Since you started" else s.heading, color = soft)
+            Text("You listened for", style = MaterialTheme.typography.headlineSmall, color = white)
+            Text("${story.summary.listenSeconds / 3600}", style = huge, color = white)
+            Text("hours", style = MaterialTheme.typography.displaySmall, color = white)
+            Spacer(Modifier.height(8.dp))
+            Text("across ${"%,d".format(story.summary.plays)} plays.", style = MaterialTheme.typography.titleMedium, color = soft)
+        }
+        is Story.TopArtist -> {
+            Eyebrow("Your number one", color = soft)
+            Text(story.name, style = MaterialTheme.typography.displayLarge, color = white, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(14.dp))
+            if (story.others.isNotEmpty()) {
+                Text("followed by", style = MaterialTheme.typography.labelLarge, color = soft)
+                story.others.forEachIndexed { i, name ->
+                    Text("${i + 2}. $name", style = MaterialTheme.typography.titleLarge, color = white, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        is Story.TopTracks -> {
+            Eyebrow("On repeat", color = soft)
+            Text("Your top tracks", style = MaterialTheme.typography.displaySmall, color = white)
+            Spacer(Modifier.height(14.dp))
+            story.tracks.forEachIndexed { i, (title, artist) ->
+                Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${i + 1}", style = MaterialTheme.typography.headlineSmall, color = white, modifier = Modifier.width(34.dp))
+                    Column {
+                        Text(title, style = MaterialTheme.typography.titleMedium, color = white, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        artist?.takeIf { it.isNotBlank() && it != title }?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = soft, maxLines = 1) }
                     }
                 }
             }
-            if (s.plays == 0) {
-                Text(
-                    "Nothing played in this period yet.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(20.dp),
-                )
+        }
+        is Story.Numbers -> {
+            Eyebrow("By the numbers", color = soft)
+            story.summary.distinctArtists?.let { BigFact("$it", "different artists") }
+            story.summary.distinctTracks?.let { BigFact("$it", "different tracks") }
+            story.summary.averageBpm?.let { BigFact("${it.toInt()}", "beats a minute, on average") }
+        }
+        is Story.Peak -> {
+            Eyebrow("Your biggest day", color = soft)
+            Text(story.day, style = MaterialTheme.typography.displayMedium, color = white)
+            Spacer(Modifier.height(8.dp))
+            Text("More music than any other day.", style = MaterialTheme.typography.titleMedium, color = soft)
+        }
+        is Story.Wrap -> {
+            Eyebrow("That's a wrap · ${story.summary.heading}", color = soft)
+            Text("${story.summary.listenSeconds.asListeningTime()} · ${"%,d".format(story.summary.plays)} plays", style = MaterialTheme.typography.headlineSmall, color = white)
+            Spacer(Modifier.height(10.dp))
+            story.summary.topArtists.take(3).forEachIndexed { i, a -> Text("${i + 1}. $a", style = MaterialTheme.typography.titleMedium, color = white) }
+            Spacer(Modifier.height(18.dp))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White)
+                    .clickable { onShare(story.summary.asShareText()) }
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = null, tint = Color(0xFF07080F), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Share your Rewind", style = MaterialTheme.typography.labelLarge, color = Color(0xFF07080F))
             }
         }
+    }
+}
+
+@Composable
+private fun BigFact(value: String, label: String) {
+    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(value, style = MaterialTheme.typography.displayMedium, color = Color.White)
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.padding(bottom = 8.dp))
     }
 }

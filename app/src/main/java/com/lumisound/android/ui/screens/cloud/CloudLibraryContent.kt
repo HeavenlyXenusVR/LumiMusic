@@ -44,6 +44,8 @@ import com.lumisound.android.data.db.CloudTrackEntity
 import com.lumisound.android.ui.components.CapsuleToolbar
 import com.lumisound.android.ui.components.ChipRow
 import com.lumisound.android.ui.components.EmptyState
+import com.lumisound.android.ui.components.GlassButton
+import com.lumisound.android.ui.components.GlowButton
 import com.lumisound.android.ui.components.IconSectionHeader
 import com.lumisound.android.ui.components.NavChip
 import com.lumisound.android.ui.components.ScreenTitle
@@ -92,22 +94,26 @@ fun CloudLibraryContent(
     onImport: () -> Unit,
     onRefresh: () -> Unit,
     actions: TrackActions,
+    onBack: (() -> Unit)? = null,
 ) {
     val palette = LocalLumiPalette.current
     var menuFor by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            CapsuleToolbar(
-                listOf(
-                    ToolbarAction(Icons.Filled.Refresh, "Refresh", onClick = onRefresh),
-                    ToolbarAction(Icons.Filled.Shuffle, "Shuffle all", onClick = { onShuffle(tracks) }),
-                    ToolbarAction(Icons.Filled.Add, "Import", onClick = onImport),
-                    ToolbarAction(Icons.Filled.Tune, "Downloads", onClick = { onViewChange(CloudView.Offline) }),
+        ScreenTitle(
+            "Cloud",
+            subtitle = "${tracks.size} tracks · ${downloadedPaths.size} offline",
+            eyebrow = "Your server library",
+            onBack = onBack,
+            trailing = {
+                CapsuleToolbar(
+                    listOf(
+                        ToolbarAction(Icons.Filled.Refresh, "Refresh", onClick = onRefresh),
+                        ToolbarAction(Icons.Filled.Add, "Import", onClick = onImport),
+                    )
                 )
-            )
-        }
-        ScreenTitle("Cloud", subtitle = "${tracks.size} tracks · ${downloadedPaths.size} offline")
+            },
+        )
         SearchField(query, onQueryChange, "Search songs, artists, albums…")
         ChipRow(
             CloudView.entries.map { entry ->
@@ -142,26 +148,8 @@ fun CloudLibraryContent(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Button(
-                            onClick = { onPlay(tracks, 0) },
-                            shape = MaterialTheme.shapes.extraLarge,
-                            modifier = Modifier.weight(1f).height(48.dp),
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(19.dp))
-                            Text("  Play")
-                        }
-                        Button(
-                            onClick = { onShuffle(tracks) },
-                            shape = MaterialTheme.shapes.extraLarge,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = palette.elevatedSurface,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                            modifier = Modifier.weight(1f).height(48.dp),
-                        ) {
-                            Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(19.dp))
-                            Text("  Shuffle")
-                        }
+                        GlowButton("Play all", Icons.Filled.PlayArrow, onClick = { onPlay(tracks, 0) }, modifier = Modifier.weight(1f))
+                        GlassButton("Shuffle", Icons.Filled.Shuffle, onClick = { onShuffle(tracks) }, modifier = Modifier.weight(1f))
                     }
                 }
 
