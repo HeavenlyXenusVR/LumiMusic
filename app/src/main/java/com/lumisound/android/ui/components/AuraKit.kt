@@ -182,8 +182,9 @@ fun VinylDisc(
     labelFraction: Float = 0.46f,
 ) {
     var angle by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(spinning) {
-        if (!spinning) return@LaunchedEffect
+    val motion = com.lumisound.android.ui.aura.LocalMotion.current
+    LaunchedEffect(spinning, motion) {
+        if (!spinning || !motion) return@LaunchedEffect
         var last = withFrameMillis { it }
         while (true) {
             val now = withFrameMillis { it }
@@ -230,19 +231,22 @@ fun VinylDisc(
  */
 @Composable
 fun EqualizerBars(playing: Boolean, color: Color, modifier: Modifier = Modifier, barWidth: Dp = 3.dp, height: Dp = 16.dp) {
-    val transition = rememberInfiniteTransition(label = "eqBars")
-    val phases = listOf(0, 180, 360).map { delay ->
-        transition.animateFloat(
-            initialValue = 0.25f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(520, delayMillis = delay, easing = LinearEasing), RepeatMode.Reverse),
-            label = "eqBar$delay",
-        )
-    }
     val resting = listOf(0.45f, 0.8f, 0.6f)
+    val fractions: List<Float> = if (playing && com.lumisound.android.ui.aura.LocalMotion.current) {
+        val transition = rememberInfiniteTransition(label = "eqBars")
+        listOf(0, 180, 360).map { delay ->
+            transition.animateFloat(
+                initialValue = 0.25f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(520, delayMillis = delay, easing = LinearEasing), RepeatMode.Reverse),
+                label = "eqBar$delay",
+            ).value
+        }
+    } else {
+        resting
+    }
     Row(modifier.height(height), horizontalArrangement = Arrangement.spacedBy(barWidth * 0.8f), verticalAlignment = Alignment.Bottom) {
-        phases.forEachIndexed { index, phase ->
-            val fraction = if (playing) phase.value else resting[index]
+        fractions.forEachIndexed { index, fraction ->
             Box(
                 Modifier
                     .width(barWidth)

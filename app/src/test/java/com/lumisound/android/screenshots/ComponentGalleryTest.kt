@@ -60,12 +60,14 @@ class ComponentGalleryTest {
     private fun capture(name: String, content: @Composable () -> Unit) {
         captureRoboImage(filePath = "build/outputs/roborazzi/$name.png") {
             LumiMusicTheme(accentHex = "#22D3EE") {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(LocalLumiPalette.current.pageBrush)
-                        .padding(vertical = 12.dp)
-                ) { content() }
+                androidx.compose.runtime.CompositionLocalProvider(com.lumisound.android.ui.aura.LocalMotion provides false) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(com.lumisound.android.ui.aura.AuraBase)
+                            .padding(vertical = 12.dp)
+                    ) { content() }
+                }
             }
         }
     }

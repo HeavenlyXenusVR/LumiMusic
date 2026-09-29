@@ -49,6 +49,7 @@ import com.lumisound.android.playback.QueueItem
 import com.lumisound.android.ui.aura.Aura
 import com.lumisound.android.ui.aura.AuraBackdrop
 import com.lumisound.android.ui.aura.LocalAura
+import com.lumisound.android.ui.aura.LocalMotion
 import com.lumisound.android.ui.components.DockTab
 import com.lumisound.android.ui.components.Loadable
 import com.lumisound.android.ui.components.OrbitDock
@@ -122,7 +123,7 @@ class ScreenRenderTest {
     private fun capture(name: String, withDock: Boolean = false, content: @Composable () -> Unit) {
         captureRoboImage(filePath = "build/outputs/roborazzi/$name.png") {
             LumiMusicTheme(accentHex = "#EC4079") {
-                CompositionLocalProvider(LocalAura provides aura) {
+                CompositionLocalProvider(LocalAura provides aura, LocalMotion provides false) {
                     AuraBackdrop(aura, Modifier.fillMaxSize()) {
                         content()
                         if (withDock) {
