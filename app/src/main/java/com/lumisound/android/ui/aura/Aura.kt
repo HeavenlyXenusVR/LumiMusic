@@ -63,6 +63,13 @@ data class Aura(val primary: Color, val secondary: Color) {
 val LocalAura = staticCompositionLocalOf { Aura(Color(0xFFEC4079), Color(0xFF7F5AF0)) }
 
 /**
+ * Whether ambient motion runs: the drifting glow, the turning record, the dancing bars.
+ * On in the app. Off in screenshot renders, where a loop that never settles makes the
+ * renderer step frames without end -- one Now Playing render ran out of memory doing it.
+ */
+val LocalMotion = staticCompositionLocalOf { true }
+
+/**
  * The aura for a track: the generated one at once, replaced by the cover's real colours as
  * soon as a small copy of the cover has loaded. The cover is fetched at 40px through the
  * app's own image loader, so it is a cache hit whenever the artwork is already on screen.
@@ -112,12 +119,16 @@ fun AuraBackdrop(
     content: @Composable BoxScope.() -> Unit = {},
 ) {
     // One slow loop drives both glows; at 40 seconds a cycle the motion is felt more than seen.
-    val phase by rememberInfiniteTransition(label = "auraDrift").animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(40_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "auraPhase",
-    )
+    val phase = if (LocalMotion.current) {
+        rememberInfiniteTransition(label = "auraDrift").animateFloat(
+            initialValue = 0f,
+            targetValue = (2 * Math.PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(40_000, easing = LinearEasing), RepeatMode.Restart),
+            label = "auraPhase",
+        ).value
+    } else {
+        0.6f
+    }
     Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
             drawRect(AuraBase)
