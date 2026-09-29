@@ -36,7 +36,12 @@ the equalizer, and a full diagnostics/telemetry stack -- and now the breadth sur
 - **Stats, Rewind and Achievements** -- totals, streaks, a year-long listening heatmap,
   monthly/yearly recaps you can share, and Lumisound's full badge set.
 - **Inbox and scrobbling** -- notifications, and Last.fm / Libre.fm / ListenBrainz status
-  with a ListenBrainz token field and an on/off switch. The UI is the "Aura" design: the whole app glows in the colours of whatever is playing, with a
+  with a ListenBrainz token field and an on/off switch.
+- **Gallery background** -- the photos Lumisound on iPhone backs up for its background
+  import on their own and play as a slideshow behind every screen, with the iPhone's
+  opacity, blur, timing and transition.
+
+The UI is the "Aura" design: the whole app glows in the colours of whatever is playing, with a
 floating Orbit dock whose centre is the playing record -- see the roadmap's redesign section.
 It keeps Lumisound's own `AppTheme` tokens — see the visual design
 section of the roadmap for what is matched and what is not. Signed APKs are attached to every

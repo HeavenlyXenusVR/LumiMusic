@@ -1,5 +1,15 @@
 package com.lumisound.android.screenshots
 
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.asImageBitmap
+import com.lumisound.android.ui.screens.settings.GalleryCallbacks
+import com.lumisound.android.ui.screens.settings.GalleryBackgroundContent
+import com.lumisound.android.ui.gallery.LocalGalleryPhotoPainter
+import com.lumisound.android.ui.gallery.GalleryBackdrop
+import com.lumisound.android.gallery.GalleryTransition
+import com.lumisound.android.gallery.GalleryState
+import com.lumisound.android.gallery.GallerySettings
+import com.lumisound.android.gallery.GalleryPhoto
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -120,11 +130,26 @@ class ScreenRenderTest {
 
     private val aura = Aura.forKey("youtube:midnight-city")
 
-    private fun capture(name: String, withDock: Boolean = false, dockTab: DockTab = DockTab.Home, content: @Composable () -> Unit) {
+    private fun capture(
+        name: String,
+        withDock: Boolean = false,
+        dockTab: DockTab = DockTab.Home,
+        gallery: GalleryState? = null,
+        content: @Composable () -> Unit,
+    ) {
         captureRoboImage(filePath = "build/outputs/roborazzi/$name.png") {
             LumiMusicTheme(accentHex = "#EC4079") {
-                CompositionLocalProvider(LocalAura provides aura, LocalMotion provides false) {
-                    AuraBackdrop(aura, Modifier.fillMaxSize()) {
+                CompositionLocalProvider(
+                    LocalAura provides aura,
+                    LocalMotion provides false,
+                    LocalGalleryPhotoPainter provides { photo -> fakePhoto(photo.id) },
+                ) {
+                    AuraBackdrop(
+                        aura,
+                        Modifier.fillMaxSize(),
+                        intensity = if (gallery?.showing == true) 0.55f else 1f,
+                        backdrop = { gallery?.let { GalleryBackdrop(it.photos, it.settings) } },
+                    ) {
                         content()
                         if (withDock) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
@@ -550,6 +575,7 @@ class ScreenRenderTest {
             SettingsUiState(
                 displayName = "Xenus", username = "xenus", avatarModel = null, officialBridge = true,
                 bridgeUrl = "https://bridge.example", offlineCount = 86, scanLabel = "640 tracks found", version = "LumiMusic 0.6.0 (10)",
+                galleryLabel = "On · 9 photos from your iPhone",
             ),
             SettingsCallbacks(onBack = {}),
         )
@@ -568,5 +594,69 @@ class ScreenRenderTest {
             ),
             onBack = {}, onEnabled = {}, onBand = { _, _ -> }, onPreset = {}, onReset = {}, onBoost = {},
         )
+    }
+
+    // --- Gallery background ----------------------------------------------------------------
+
+    private val galleryState = GalleryState(
+        settings = GallerySettings(enabled = true, opacity = 0.55f, blurRadius = 6f, intervalSeconds = 30, transition = GalleryTransition.ZoomBlur, kenBurns = true),
+        lumisoundSettings = GallerySettings(enabled = true, opacity = 0.55f, blurRadius = 6f, intervalSeconds = 30, transition = GalleryTransition.ZoomBlur, kenBurns = true),
+        followLumisound = true,
+        photos = List(9) { GalleryPhoto("photo-$it", "https://bridge.example/user/gallery/images/photo-$it") },
+        lastSyncedAt = 1_000_000L,
+    )
+
+    @Test
+    fun galleryBackground() = capture("25-gallery-background", gallery = galleryState) {
+        GalleryBackgroundContent(galleryState, GalleryCallbacks(onBack = {}), nowMs = 1_000_000L + 5 * 60_000L)
+    }
+
+    @Test
+    fun homeOverGallery() = capture("26-home-gallery", withDock = true, gallery = galleryState) {
+        HomeContent(homeData, HomeCallbacks())
+    }
+
+    /**
+     * A stand-in photo, different per id: a sky, a low sun and two ridges of hills, so the
+     * renders show how a real photo sits under the glass rather than a flat colour.
+     */
+    private val photoCache = HashMap<String, BitmapPainter>()
+
+    private fun fakePhoto(id: String): BitmapPainter = photoCache.getOrPut(id) {
+        val palettes = listOf(
+            intArrayOf(0xFF1B2A6B.toInt(), 0xFFE86A5B.toInt(), 0xFFFFC677.toInt(), 0xFF2B1B3F.toInt(), 0xFF120C22.toInt()),
+            intArrayOf(0xFF0E3B4F.toInt(), 0xFF3FA7A3.toInt(), 0xFFF3E6B5.toInt(), 0xFF1D4A3A.toInt(), 0xFF0B2219.toInt()),
+            intArrayOf(0xFF3A1650.toInt(), 0xFFC04B8E.toInt(), 0xFFFFA4C4.toInt(), 0xFF2A1033.toInt(), 0xFF12061A.toInt()),
+            intArrayOf(0xFF102642.toInt(), 0xFF4C7BD9.toInt(), 0xFFB9D7FF.toInt(), 0xFF1C2F52.toInt(), 0xFF0A1426.toInt()),
+        )
+        val seed = id.hashCode().let { if (it < 0) -it else it }
+        val c = palettes[seed % palettes.size]
+        val w = 360
+        val h = 480
+        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        paint.shader = android.graphics.LinearGradient(0f, 0f, 0f, h * 0.7f, c[0], c[1], android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+        val sunX = w * (0.25f + (seed % 50) / 100f)
+        paint.shader = android.graphics.RadialGradient(sunX, h * 0.55f, w * 0.5f, c[2], 0x00000000, android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawCircle(sunX, h * 0.55f, w * 0.5f, paint)
+        paint.shader = null
+        fun ridge(base: Float, amp: Float, color: Int, phase: Float) {
+            val path = android.graphics.Path()
+            path.moveTo(0f, h.toFloat())
+            var x = 0f
+            while (x <= w) {
+                path.lineTo(x, base + amp * kotlin.math.sin(x / w * 6.28f * 1.3f + phase))
+                x += 6f
+            }
+            path.lineTo(w.toFloat(), h.toFloat())
+            path.close()
+            paint.color = color
+            canvas.drawPath(path, paint)
+        }
+        ridge(h * 0.66f, 22f, c[3], seed % 7 / 2f)
+        ridge(h * 0.78f, 16f, c[4], seed % 5 / 3f)
+        BitmapPainter(bitmap.asImageBitmap())
     }
 }

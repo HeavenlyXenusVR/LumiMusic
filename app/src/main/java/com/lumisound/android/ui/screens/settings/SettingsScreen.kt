@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -79,6 +80,7 @@ data class SettingsUiState(
     val offlineCount: Int,
     val scanLabel: String,
     val version: String,
+    val galleryLabel: String = "Photos from Lumisound on iPhone",
 )
 
 data class SettingsCallbacks(
@@ -100,6 +102,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val account by container.account.state.collectAsStateWithLifecycle()
     val scanState by container.libraryScanner.state.collectAsStateWithLifecycle()
+    val gallery by container.gallery.state.collectAsStateWithLifecycle()
     val downloads by container.database.downloads().observePaths()
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val user = (account as? AccountState.SignedIn)?.user
@@ -119,6 +122,11 @@ fun SettingsScreen(
                 else -> "Not scanned yet"
             },
             version = "LumiMusic ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            galleryLabel = when {
+                gallery.photos.isEmpty() -> "Photos from Lumisound on iPhone"
+                gallery.settings.enabled -> "On · ${gallery.photos.size} photos from your iPhone"
+                else -> "Off · ${gallery.photos.size} photos from your iPhone"
+            },
         ),
         callbacks = SettingsCallbacks(
             onBack = onBack,
@@ -128,6 +136,7 @@ fun SettingsScreen(
                 scope.launch {
                     container.account.signOut()
                     container.appearance.clear()
+                    container.gallery.clear()
                 }
             },
             onRescan = { scope.launch { container.libraryScanner.scan() } },
@@ -235,6 +244,11 @@ fun SettingsContent(state: SettingsUiState, callbacks: SettingsCallbacks) {
         }
 
         Spacer(Modifier.height(24.dp))
+        SettingsGroup("Appearance") {
+            SettingsRow(Icons.Filled.Wallpaper, "Gallery background", state.galleryLabel, onClick = { callbacks.onOpen(Route.GalleryBackground) })
+        }
+
+        Spacer(Modifier.height(22.dp))
         SettingsGroup("Your listening") {
             SettingsRow(Icons.Filled.Replay, "Rewind", "This month, this year and all time, as a story", onClick = { callbacks.onOpen(Route.Rewind) })
             Hairline()

@@ -116,6 +116,8 @@ fun AuraBackdrop(
     aura: Aura,
     modifier: Modifier = Modifier,
     intensity: Float = 1f,
+    /** Drawn over the base and under the glows: the gallery background, when one is set. */
+    backdrop: @Composable BoxScope.() -> Unit = {},
     content: @Composable BoxScope.() -> Unit = {},
 ) {
     // One slow loop drives both glows; at 40 seconds a cycle the motion is felt more than seen.
@@ -130,8 +132,9 @@ fun AuraBackdrop(
         0.6f
     }
     Box(modifier) {
+        Canvas(Modifier.fillMaxSize()) { drawRect(AuraBase) }
+        backdrop()
         Canvas(Modifier.fillMaxSize()) {
-            drawRect(AuraBase)
             val w = size.width
             val h = size.height
             val big = max(w, h)
