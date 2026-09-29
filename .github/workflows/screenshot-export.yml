@@ -1,0 +1,37 @@
+# Temporary: renders the screenshot tests and commits the PNGs to the
+# claude/screenshot-output branch so they can be viewed without downloading
+# an Actions artifact. Lives only on the claude/screenshot-export branch.
+name: Screenshot export
+
+on:
+  push:
+    branches: [claude/screenshot-export]
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Render screens
+        run: ./gradlew --no-daemon testDebugUnitTest
+      - name: Commit PNGs to claude/screenshot-output
+        run: |
+          mkdir -p /tmp/out
+          cp app/build/outputs/roborazzi/*.png /tmp/out/
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan claude/screenshot-output
+          git rm -rq --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp /tmp/out/*.png .
+          git add *.png
+          git commit -qm "Rendered screens from ${GITHUB_SHA}"
+          git push -f origin claude/screenshot-output
