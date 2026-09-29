@@ -1,6 +1,9 @@
 package com.lumisound.android.ui.screens.stats
 
 import androidx.compose.foundation.background
+import com.lumisound.android.ui.components.LumiCard
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -121,13 +124,7 @@ fun StatsContent(
 
             // The bento: one tall tile beside two short ones.
             Row(Modifier.padding(horizontal = 16.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(
-                    streak?.let { "${it.currentStreakDays}" } ?: "—",
-                    "day streak right now",
-                    Icons.Filled.LocalFireDepartment,
-                    SectionTint.Device,
-                    Modifier.weight(1f).fillMaxHeight(),
-                )
+                StreakTile(streak?.currentStreakDays, Modifier.weight(1f).fillMaxHeight())
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatTile(streak?.let { "${it.longestStreakDays}d" } ?: "—", "longest streak", Icons.Filled.WorkspacePremium, SectionTint.Favorites, Modifier.fillMaxWidth())
                     StatTile("${stats.topArtists.size}", "artists in your top", Icons.Filled.Person, SectionTint.Library, Modifier.fillMaxWidth())
@@ -206,6 +203,44 @@ private fun ArtistBar(rank: Int, name: String, plays: Int, fraction: Float) {
             Text("$rank", style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(26.dp))
             Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1)
             Text("$plays", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/**
+ * The bento's tall tile: the current streak as a big number over a week of flames, lit for
+ * each of the last seven days the streak covers, so the height carries something to read.
+ */
+@Composable
+private fun StreakTile(days: Int?, modifier: Modifier = Modifier) {
+    val tint = SectionTint.Device
+    val palette = LocalLumiPalette.current
+    LumiCard(modifier) {
+        Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Box(
+                Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(tint.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.LocalFireDepartment, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+            }
+            Column {
+                Text(days?.toString() ?: "—", style = MaterialTheme.typography.displayMedium, color = tint)
+                Text("day streak right now", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    val lit = (days ?: 0).coerceIn(0, 7)
+                    repeat(7) { index ->
+                        // Today is the rightmost flame; the streak fills in from there.
+                        val on = index >= 7 - lit
+                        Icon(
+                            Icons.Filled.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = if (on) tint else palette.hairline,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }
