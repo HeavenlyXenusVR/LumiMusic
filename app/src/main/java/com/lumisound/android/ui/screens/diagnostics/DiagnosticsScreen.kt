@@ -54,7 +54,7 @@ import kotlinx.coroutines.launch
  * just "it didn't work".
  */
 @Composable
-fun DiagnosticsScreen(container: AppContainer) {
+fun DiagnosticsScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snapshot by container.diagnostics.lastSnapshot.collectAsStateWithLifecycle()
@@ -76,8 +76,14 @@ fun DiagnosticsScreen(container: AppContainer) {
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
     ) {
+        com.lumisound.android.ui.components.ScreenTitle(
+            "Diagnostics",
+            subtitle = "Live state, logs, and a way to report a problem",
+            eyebrow = "Support",
+            onBack = onBack,
+        )
+        Column(Modifier.padding(horizontal = 16.dp)) {
         Text("Build", style = MaterialTheme.typography.titleMedium)
         Text(
             "LumiMusic ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) " +
@@ -196,6 +202,7 @@ fun DiagnosticsScreen(container: AppContainer) {
             }) { Text("Copy log") }
         }
         LogTail(logText)
+        }
     }
 }
 

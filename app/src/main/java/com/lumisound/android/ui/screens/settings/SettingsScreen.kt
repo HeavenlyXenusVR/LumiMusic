@@ -1,5 +1,8 @@
 package com.lumisound.android.ui.screens.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,26 +15,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,208 +42,216 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.lumisound.android.AppContainer
 import com.lumisound.android.BuildConfig
 import com.lumisound.android.bridge.AccountState
 import com.lumisound.android.bridge.BridgeUrls
 import com.lumisound.android.ui.Route
+import com.lumisound.android.ui.aura.LocalAura
+import com.lumisound.android.ui.components.GlassButton
+import com.lumisound.android.ui.components.GlowButton
 import com.lumisound.android.ui.components.Hairline
-import com.lumisound.android.ui.components.LumiCard
 import com.lumisound.android.ui.components.OneLine
+import com.lumisound.android.ui.components.Pill
+import com.lumisound.android.ui.components.ScreenTitle
 import com.lumisound.android.ui.components.SettingsGroup
 import com.lumisound.android.ui.components.SettingsRow
+import com.lumisound.android.ui.screens.social.Avatar
+import com.lumisound.android.ui.theme.EyebrowStyle
 import com.lumisound.android.ui.theme.LocalLumiPalette
+import com.lumisound.android.ui.theme.SectionTint
 import kotlinx.coroutines.launch
+
+data class SettingsUiState(
+    val displayName: String,
+    val username: String?,
+    val avatarModel: Any?,
+    val officialBridge: Boolean,
+    val bridgeUrl: String,
+    val offlineCount: Int,
+    val scanLabel: String,
+    val version: String,
+)
+
+data class SettingsCallbacks(
+    val onBack: (() -> Unit)? = null,
+    val onOpen: (Route) -> Unit = {},
+    val onImport: () -> Unit = {},
+    val onSignOut: () -> Unit = {},
+    val onRescan: () -> Unit = {},
+    val onSaveBridge: (String) -> String = { it },
+)
 
 @Composable
 fun SettingsScreen(
     container: AppContainer,
     onOpenImport: () -> Unit,
     onOpen: (Route) -> Unit,
+    onBack: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val palette = LocalLumiPalette.current
     val account by container.account.state.collectAsStateWithLifecycle()
     val scanState by container.libraryScanner.state.collectAsStateWithLifecycle()
     val downloads by container.database.downloads().observePaths()
         .collectAsStateWithLifecycle(initialValue = emptyList())
-    var bridgeUrl by remember { mutableStateOf(container.config.baseUrl) }
+    val user = (account as? AccountState.SignedIn)?.user
+
+    SettingsContent(
+        state = SettingsUiState(
+            displayName = user?.displayName?.takeIf { it.isNotBlank() } ?: user?.username ?: "Not signed in",
+            username = user?.username,
+            avatarModel = user?.id?.let { BridgeUrls.avatar(container.config.baseUrl, it) },
+            officialBridge = container.config.isOfficial,
+            bridgeUrl = container.config.baseUrl,
+            offlineCount = downloads.size,
+            scanLabel = when {
+                scanState.running -> "Scanning…"
+                scanState.found > 0 -> "${scanState.found} tracks found"
+                scanState.lastRunAt != null -> "Last scan found nothing"
+                else -> "Not scanned yet"
+            },
+            version = "LumiMusic ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        ),
+        callbacks = SettingsCallbacks(
+            onBack = onBack,
+            onOpen = onOpen,
+            onImport = onOpenImport,
+            onSignOut = {
+                scope.launch {
+                    container.account.signOut()
+                    container.appearance.clear()
+                }
+            },
+            onRescan = { scope.launch { container.libraryScanner.scan() } },
+            onSaveBridge = { url ->
+                container.config.baseUrl = url
+                container.config.baseUrl
+            },
+        ),
+    )
+}
+
+private data class Control(val label: String, val detail: String?, val icon: ImageVector, val tint: Color, val route: Route)
+
+/**
+ * Settings as a control room. The account leads, as a card in your own colours; the six
+ * things people actually open settings for sit under it as a grid of tiles; the rarer
+ * switches are grouped lists below.
+ */
+@Composable
+fun SettingsContent(state: SettingsUiState, callbacks: SettingsCallbacks) {
+    val palette = LocalLumiPalette.current
+    val aura = LocalAura.current
+    var bridgeUrl by remember(state.bridgeUrl) { mutableStateOf(state.bridgeUrl) }
     var editingBridge by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
 
-    val user = (account as? AccountState.SignedIn)?.user
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 28.dp)) {
+        ScreenTitle("Settings", eyebrow = "You", onBack = callbacks.onBack)
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 28.dp)
-    ) {
-        Text(
-            "Settings",
-            style = MaterialTheme.typography.displaySmall,
-            modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 14.dp),
-        )
-
-        // The account card leads, with the avatar the bridge already serves -- the same
-        // image Lumisound shows for this account.
-        LumiCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        // The account, as a card in the colours of whatever is playing.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Brush.linearGradient(listOf(aura.primary.copy(alpha = 0.6f), aura.secondary.copy(alpha = 0.3f), Color(0x3307080F))))
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
+                .padding(18.dp)
+        ) {
             Column {
-                Row(
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    // The avatar the bridge already serves for this account -- the same
-                    // image Lumisound shows. A missing one just leaves the accent wash.
-                    Box(
-                        Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(palette.accentWash),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        user?.id?.let { userId ->
-                            AsyncImage(
-                                model = BridgeUrls.avatar(container.config.baseUrl, userId),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(54.dp).clip(CircleShape),
-                            )
-                        }
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(state.avatarModel, state.username ?: state.displayName, 68.dp)
+                    Spacer(Modifier.size(14.dp))
                     Column(Modifier.weight(1f)) {
-                        OneLine(
-                            user?.displayName?.takeIf { it.isNotBlank() } ?: user?.username ?: "Not signed in",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        OneLine(
-                            user?.username?.let { "@$it" } ?: "—",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        OneLine(state.displayName, style = MaterialTheme.typography.titleLarge)
+                        OneLine(state.username?.let { "@$it" } ?: "—", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.75f))
+                        Spacer(Modifier.height(6.dp))
+                        Pill(if (state.officialBridge) "Official bridge" else "Self-hosted bridge", tint = Color.White)
                     }
                 }
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    "The same account Lumisound uses. Favorites, playlists, history and cloud tracks are shared between both apps.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    "The same account as Lumisound: favorites, playlists, history and cloud tracks are shared between both apps.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f),
                 )
                 Spacer(Modifier.height(14.dp))
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Button(onClick = onOpenImport, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("  Import")
-                    }
-                    TextButton(
-                        onClick = {
-                            scope.launch {
-                                container.account.signOut()
-                                container.appearance.clear()
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("  Sign out")
-                    }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GlowButton("Import", Icons.Filled.CloudDownload, onClick = callbacks.onImport, modifier = Modifier.weight(1f))
+                    GlassButton("Sign out", Icons.AutoMirrored.Filled.Logout, onClick = callbacks.onSignOut, modifier = Modifier.weight(1f))
                 }
-                Spacer(Modifier.height(8.dp))
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Text(
+            "QUICK CONTROLS",
+            style = EyebrowStyle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 10.dp),
+        )
+        val controls = listOf(
+            Control("Equalizer", "Hardware bands", Icons.Filled.Equalizer, SectionTint.Offline, Route.Equalizer),
+            Control("Offline", "${state.offlineCount} saved", Icons.Filled.DownloadForOffline, SectionTint.Library, Route.Downloads),
+            Control("Scrobbling", "Last.fm · ListenBrainz", Icons.Filled.Sync, SectionTint.Recent, Route.Scrobbling),
+            Control("Inbox", "Notifications", Icons.Filled.Notifications, SectionTint.Favorites, Route.Notifications),
+            Control("Stats", "Your report", Icons.Filled.BarChart, SectionTint.Playlists, Route.Stats),
+            Control("Diagnostics", "Logs & reports", Icons.Filled.BugReport, SectionTint.Device, Route.Diagnostics),
+        )
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            controls.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { control ->
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(palette.elevatedSurface)
+                                .border(1.dp, palette.hairline, RoundedCornerShape(22.dp))
+                                .clickable { callbacks.onOpen(control.route) }
+                                .padding(14.dp),
+                        ) {
+                            Box(
+                                Modifier.size(38.dp).clip(CircleShape).background(control.tint.copy(alpha = 0.22f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(control.icon, contentDescription = null, tint = control.tint, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            OneLine(control.label, style = MaterialTheme.typography.titleSmall)
+                            control.detail?.let { OneLine(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
         SettingsGroup("Your listening") {
-            SettingsRow(
-                icon = Icons.Filled.BarChart,
-                title = "Stats",
-                subtitle = "Totals, streaks, top artists and your year of listening",
-                onClick = { onOpen(Route.Stats) },
-            )
+            SettingsRow(Icons.Filled.Replay, "Rewind", "This month, this year and all time, as a story", onClick = { callbacks.onOpen(Route.Rewind) })
             Hairline()
-            SettingsRow(
-                icon = Icons.Filled.Replay,
-                title = "Rewind",
-                subtitle = "This month, this year and all time, wrapped",
-                onClick = { onOpen(Route.Rewind) },
-            )
-            Hairline()
-            SettingsRow(
-                icon = Icons.Filled.EmojiEvents,
-                title = "Achievements",
-                subtitle = "Badges earned on every device",
-                onClick = { onOpen(Route.Achievements) },
-            )
-            Hairline()
-            SettingsRow(
-                icon = Icons.Filled.Sync,
-                title = "Scrobbling",
-                subtitle = "Last.fm, Libre.fm and ListenBrainz",
-                onClick = { onOpen(Route.Scrobbling) },
-            )
-            Hairline()
-            SettingsRow(
-                icon = Icons.Filled.Notifications,
-                title = "Inbox",
-                subtitle = "Friend requests, badges and new releases",
-                onClick = { onOpen(Route.Notifications) },
-            )
+            SettingsRow(Icons.Filled.EmojiEvents, "Trophy case", "Badges earned on every device", onClick = { callbacks.onOpen(Route.Achievements) })
         }
 
         Spacer(Modifier.height(22.dp))
-        SettingsGroup("Playback & storage") {
-            SettingsRow(
-                icon = Icons.Filled.Equalizer,
-                title = "Equalizer",
-                subtitle = "Your device's own bands and presets",
-                onClick = { onOpen(Route.Equalizer) },
-            )
-            Hairline()
-            SettingsRow(
-                icon = Icons.Filled.Download,
-                title = "Offline downloads",
-                subtitle = if (downloads.isEmpty()) "Nothing saved yet" else "${downloads.size} tracks saved",
-                onClick = { onOpen(Route.Downloads) },
-            )
-            Hairline()
-            SettingsRow(
-                icon = Icons.Filled.Refresh,
-                title = "Rescan device library",
-                subtitle = when {
-                    scanState.running -> "Scanning…"
-                    scanState.found > 0 -> "${scanState.found} tracks found"
-                    scanState.lastRunAt != null -> "Last scan found nothing"
-                    else -> "Not scanned yet"
-                },
-                onClick = { scope.launch { container.libraryScanner.scan() } },
-            )
+        SettingsGroup("This phone") {
+            SettingsRow(Icons.Filled.Refresh, "Rescan device library", state.scanLabel, onClick = callbacks.onRescan)
         }
 
         Spacer(Modifier.height(22.dp))
-        SettingsGroup("Support") {
-            SettingsRow(
-                icon = Icons.Filled.BugReport,
-                title = "Diagnostics & telemetry",
-                subtitle = "Live state, logs, and report a problem",
-                onClick = { onOpen(Route.Diagnostics) },
-            )
-            Hairline()
+        SettingsGroup("Connection") {
             SettingsRow(
                 icon = Icons.Filled.Dns,
                 title = "Bridge",
-                subtitle = if (container.config.isOfficial) "Official bridge" else "Self-hosted",
+                subtitle = if (state.officialBridge) "Official bridge" else state.bridgeUrl,
                 onClick = { editingBridge = !editingBridge },
             )
             if (editingBridge) {
@@ -256,8 +267,7 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
-                            container.config.baseUrl = bridgeUrl
-                            bridgeUrl = container.config.baseUrl
+                            bridgeUrl = callbacks.onSaveBridge(bridgeUrl)
                             editingBridge = false
                             note = "Saved. Sign out and back in if you changed servers."
                         },
@@ -275,18 +285,12 @@ fun SettingsScreen(
 
         note?.let {
             Spacer(Modifier.height(10.dp))
-            Text(
-                it,
-                style = MaterialTheme.typography.labelSmall,
-                color = palette.accent,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
-                textAlign = TextAlign.Center,
-            )
+            Text(it, style = MaterialTheme.typography.labelSmall, color = palette.accent, modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp), textAlign = TextAlign.Center)
         }
 
         Spacer(Modifier.height(26.dp))
         Text(
-            "LumiMusic ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            state.version,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),

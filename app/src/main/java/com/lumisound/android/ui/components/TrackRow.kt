@@ -27,7 +27,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.lumisound.android.ui.theme.LocalLumiPalette
 
@@ -55,36 +58,34 @@ fun TrackRow(
 ) {
     val palette = LocalLumiPalette.current
     val background by animateColorAsState(
-        if (isPlaying) palette.accentWash else Color.Transparent,
+        if (isPlaying) palette.accent.copy(alpha = 0.16f) else Color.Transparent,
         label = "rowBackground",
     )
 
+    // The playing row is an inset glass pill rather than a full-bleed band, so it reads as
+    // "this one" without cutting the list in half.
     Row(
         modifier
             .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(background)
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = if (onMenu == null) 16.dp else 4.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 10.dp, end = if (onMenu == null) 12.dp else 2.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        Box {
-            Artwork(model = artworkModel, fallbackKey = fallbackKey, size = 50.dp)
+        Box(contentAlignment = Alignment.Center) {
+            Artwork(model = artworkModel, fallbackKey = fallbackKey, size = 52.dp, corner = 14.dp)
             if (isPlaying) {
-                // A playing row is marked on the artwork itself; a coloured title alone was
-                // too easy to miss while scrolling.
                 Box(
                     Modifier
-                        .size(50.dp)
-                        .background(Color.Black.copy(alpha = 0.45f), MaterialTheme.shapes.extraSmall),
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.Black.copy(alpha = 0.45f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        Icons.Filled.GraphicEq,
-                        contentDescription = "Now playing",
-                        tint = palette.accent,
-                        modifier = Modifier.size(22.dp),
-                    )
+                    EqualizerBars(playing = true, color = Color.White, height = 18.dp)
                 }
             }
         }
@@ -92,18 +93,13 @@ fun TrackRow(
         Column(Modifier.weight(1f)) {
             OneLine(
                 title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleSmall,
                 color = if (isPlaying) palette.accent else MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 if (isFavorite) {
-                    Icon(
-                        Icons.Filled.Favorite,
-                        contentDescription = "Favorite",
-                        tint = palette.accent,
-                        modifier = Modifier.size(12.dp),
-                    )
+                    Icon(Icons.Filled.Favorite, contentDescription = "Favorite", tint = palette.accent, modifier = Modifier.size(12.dp))
                 }
                 if (isDownloaded) {
                     Icon(
@@ -135,7 +131,6 @@ fun TrackRow(
                 it,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(40.dp),
             )
         }
 
@@ -151,7 +146,10 @@ fun TrackRow(
     }
 }
 
-/** The square card used in the home shelves. */
+/**
+ * The card used in horizontal shelves: big rounded art with a soft reflection of its own
+ * colour underneath, then two lines.
+ */
 @Composable
 fun ShelfCard(
     title: String,
@@ -160,19 +158,30 @@ fun ShelfCard(
     fallbackKey: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 148.dp,
 ) {
+    val glow = com.lumisound.android.ui.aura.Aura.forKey(fallbackKey).primary
     Column(
         modifier
-            .width(132.dp)
+            .width(size + 8.dp)
+            .clip(RoundedCornerShape(22.dp))
             .clickable(onClick = onClick)
-            .padding(6.dp)
+            .padding(4.dp)
     ) {
-        Artwork(model = artworkModel, fallbackKey = fallbackKey, size = 120.dp, corner = 14.dp)
-        Spacer(Modifier.height(8.dp))
-        OneLine(title, style = MaterialTheme.typography.labelLarge)
+        Box {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .padding(top = 18.dp)
+                    .background(Brush.radialGradient(listOf(glow.copy(alpha = 0.35f), Color.Transparent)))
+            )
+            Artwork(model = artworkModel, fallbackKey = fallbackKey, size = size, corner = 20.dp)
+        }
+        Spacer(Modifier.height(9.dp))
+        OneLine(title, style = MaterialTheme.typography.titleSmall)
         OneLine(
             subtitle,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

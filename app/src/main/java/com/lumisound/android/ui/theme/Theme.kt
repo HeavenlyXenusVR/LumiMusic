@@ -46,10 +46,20 @@ data class LumiPalette(
     val accent: Color,
     val pageTop: Color,
     val pageBottom: Color,
+    /**
+     * Glass: a translucent lift over the aura rather than an opaque panel, so the colour of
+     * what is playing reaches through every card. Menus and dialogs use the opaque
+     * `colorScheme.surface` instead -- text over a moving glow needs a solid floor there.
+     */
     val elevatedSurface: Color,
     val hairline: Color,
     val accentWash: Color,
+    /** A second, stronger glass for things that must stand off the page (the dock, heroes). */
+    val glassStrong: Color = Color(0xCC12141F),
 ) {
+    /** The accent run into a lighter, warmer twin -- used on primary actions. */
+    val accentBrush: Brush get() = Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.72f).compositeOver(Color(0xFFFFB199))))
+
     val pageBrush: Brush get() = Brush.verticalGradient(listOf(pageTop, pageBottom))
 }
 
@@ -84,10 +94,10 @@ fun LumiMusicTheme(
         LumiPalette(
             accent = accent,
             pageTop = accent.copy(alpha = 0.09f).compositeOver(Color(0xFF111528)),
-            pageBottom = Color(0xFF080A14),
-            elevatedSurface = Color(0xFF1A1F33),
-            hairline = Color(0x14FFFFFF),
-            accentWash = accent.copy(alpha = 0.16f),
+            pageBottom = Color(0xFF07080F),
+            elevatedSurface = Color(0x17FFFFFF),
+            hairline = Color(0x1AFFFFFF),
+            accentWash = accent.copy(alpha = 0.18f),
         )
     } else {
         LumiPalette(
@@ -110,7 +120,12 @@ fun LumiMusicTheme(
             background = palette.pageBottom,
             // Lumisound's own text tokens, so the two apps read as one family.
             onBackground = Color(0xFFF7FAFC),
-            surface = palette.elevatedSurface,
+            // Opaque on purpose: menus, dialogs and sheets draw on this, and glass there
+            // would put text straight over the moving aura.
+            surface = Color(0xFF161A2A),
+            surfaceContainer = Color(0xFF161A2A),
+            surfaceContainerHigh = Color(0xFF1C2033),
+            surfaceContainerHighest = Color(0xFF232842),
             onSurface = Color(0xFFF7FAFC),
             surfaceVariant = Color(0xFF232942),
             onSurfaceVariant = Color(0xFFCBD5E0),
@@ -143,21 +158,23 @@ fun LumiMusicTheme(
                 extraSmall = RoundedCornerShape(8.dp),
                 small = RoundedCornerShape(12.dp),
                 medium = RoundedCornerShape(16.dp),
-                large = RoundedCornerShape(22.dp),
-                extraLarge = RoundedCornerShape(28.dp),
+                large = RoundedCornerShape(26.dp),
+                extraLarge = RoundedCornerShape(32.dp),
             ),
             typography = Typography(
-                displaySmall = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+                displayLarge = TextStyle(fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.6).sp),
+                displayMedium = TextStyle(fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.1).sp),
+                displaySmall = TextStyle(fontSize = 33.sp, lineHeight = 38.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp),
                 headlineSmall = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
                 titleLarge = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp),
                 titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-                titleSmall = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                 bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 22.sp),
                 bodyMedium = TextStyle(fontSize = 14.5.sp, lineHeight = 20.sp),
                 bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
                 labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 labelMedium = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
                 labelSmall = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.2.sp),
+                titleSmall = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
             ),
             content = content,
         )
@@ -178,6 +195,9 @@ object SectionTint {
     val Device = Color(0xFFF6AD55)
     val Playlists = Color(0xFF68D391)
 }
+
+/** The spaced capitals that sit above headings throughout the redesign. */
+val EyebrowStyle = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
 
 private fun Color.compositeOver(background: Color): Color {
     val a = alpha

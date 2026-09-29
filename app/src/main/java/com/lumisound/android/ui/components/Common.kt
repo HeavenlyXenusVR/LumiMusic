@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.lumisound.android.diagnostics.AppLogger
+import com.lumisound.android.ui.theme.EyebrowStyle
 import com.lumisound.android.ui.theme.LocalLumiPalette
 
 /**
@@ -151,7 +152,7 @@ fun fallbackPaletteFor(key: String): FallbackPalette {
     )
 }
 
-/** A section title with an optional trailing action, used above every list and shelf. */
+/** A section title with an optional trailing action, used above lists in dialogs and sheets. */
 @Composable
 fun SectionHeader(
     title: String,
@@ -177,19 +178,29 @@ fun SectionHeader(
     }
 }
 
-/** The app's card: a soft raised surface with a hairline instead of a shadow. */
+/**
+ * The app's card: glass. A translucent lift over the aura with a hairline catching the light
+ * along its top edge, so the page's colour runs through every card instead of stopping at it.
+ */
 @Composable
 fun LumiCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    corner: Dp = 22.dp,
     content: @Composable () -> Unit,
 ) {
     val palette = LocalLumiPalette.current
+    val shape = RoundedCornerShape(corner)
     Surface(
-        modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = MaterialTheme.shapes.medium,
+        modifier = modifier
+            .clip(shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        shape = shape,
         color = palette.elevatedSurface,
-        border = BorderStroke(1.dp, palette.hairline),
+        border = BorderStroke(
+            1.dp,
+            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.03f))),
+        ),
         content = { content() },
     )
 }
@@ -213,13 +224,16 @@ fun SettingsRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(palette.accentWash),
+            Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Brush.linearGradient(listOf(palette.accent.copy(alpha = 0.34f), palette.accent.copy(alpha = 0.10f)))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = palette.accent, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(19.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = MaterialTheme.typography.titleSmall)
             subtitle?.let {
                 Text(
                     it,
@@ -238,9 +252,9 @@ fun SettingsGroup(title: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
             title.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
+            style = EyebrowStyle,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
         )
         LumiCard(Modifier.fillMaxWidth()) { Column { content() } }
     }
@@ -286,14 +300,25 @@ fun EmptyState(
     val palette = LocalLumiPalette.current
     Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // The icon sits in its own small glow -- an empty screen should still feel lit.
             Box(
-                Modifier.size(72.dp).clip(CircleShape).background(palette.accentWash),
+                Modifier
+                    .size(132.dp)
+                    .background(
+                        Brush.radialGradient(listOf(palette.accent.copy(alpha = 0.32f), Color.Transparent)),
+                        CircleShape,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, contentDescription = null, tint = palette.accent, modifier = Modifier.size(30.dp))
+                Box(
+                    Modifier.size(76.dp).clip(CircleShape).background(palette.elevatedSurface),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                }
             }
-            Spacer(Modifier.height(18.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(10.dp))
+            Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
             Text(
                 message,

@@ -121,6 +121,25 @@ a deliberate trade, not an oversight.
 - Customize Home: custom greeting, home accent colour, per-section toggles and reordering
 - The light theme
 
+## The Aura redesign (v0.6.0)
+
+Every screen was rebuilt, not restyled. The ideas, in the order they matter:
+
+| Idea | What it is |
+|---|---|
+| **Aura** | The page glows with the music. The background is two slow-drifting glows sampled from the playing cover (`AuraColors`: each pixel votes for its hue weighted by vividness, so a small bright logo beats a big dull field) or, with no cover, from the generated cover's hue. It cross-fades on every track change. The account accent still marks what is tappable. |
+| **Glass** | Cards, chips, fields and buttons are translucent over the aura instead of opaque navy, so the track's colour runs through the whole UI. Menus and dialogs stay opaque. |
+| **Orbit dock** | The tab bar and mini player were two bars saying two things. They are one floating dock now: Home, Search, Library, Circle, and in the middle the playing track as a turning vinyl record ringed by its progress, with a pause badge. Settings moved behind the avatar on Home. |
+| **Home spotlight** | A swipeable deck of big playable cards (Aria's pick, Weekly Mix, the episode in progress, Discover, your twin), then friends listening this minute, a jump-back-in grid, and On This Day as a "memory" card. |
+| **The Stage** | Now Playing has four faces: *Record* (a spinning vinyl with a drag-to-seek progress ring), *Lyrics*, *Up next* (the queue, in place) and *Details*. The queue sheet is gone. |
+| **Library crates** | Six big coloured tiles with counts instead of a text switcher; each crate is its own full screen. Playlists are a wall of collages with a hero page each (and can now actually be played). |
+| **Search canvas** | Recent chips, a ranked "everyone's searching" ticker and a mood grid before you type; a Top result hero card after. |
+| **Circle** | Friends playing right now get a card in the colour of their track with "Listen too"; activity is a timeline grouped by day; profiles have a banner in their accent and a Music Match dial. |
+| **Stories** | Rewind is a tap-through story, one fact per page, ending on a shareable wrap card. Stats is a report led by one giant number; Achievements is a trophy case of hex medallions with a level ring and "next up". |
+| **Control room** | Settings opens on the account card and a grid of the six things people come for. The equalizer is a mixing desk: vertical faders with the curve drawn through them. |
+
+Every screen has a stateless `…Content` composable and a render in `ScreenRenderTest`.
+
 ## Verification status — read this before trusting the table above
 
 Everything in milestone 1 **compiles, passes unit tests and passes lint in CI** on every

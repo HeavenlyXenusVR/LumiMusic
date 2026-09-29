@@ -37,24 +37,32 @@ import kotlinx.coroutines.launch
  * favorites its own local library ids too.
  */
 @Composable
-fun FavoritesScreen(container: AppContainer) {
+fun FavoritesScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val favorites by container.database.favorites().observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val playback by container.player.state.collectAsStateWithLifecycle()
 
     if (favorites.isEmpty()) {
-        EmptyState(
-            icon = Icons.Filled.FavoriteBorder,
-            title = "No favorites yet",
-            message = "Favorite a track here or in Lumisound — the list is shared between both apps.",
-        )
+        Column(Modifier.fillMaxSize()) {
+            ScreenTitle("Favorites", eyebrow = "Saved", onBack = onBack)
+            EmptyState(
+                icon = Icons.Filled.FavoriteBorder,
+                title = "No favorites yet",
+                message = "Favorite a track here or in Lumisound — the list is shared between both apps.",
+            )
+        }
         return
     }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            ScreenTitle("Favorites", subtitle = "${favorites.size} saved · shared with Lumisound")
+            ScreenTitle(
+                "Favorites",
+                subtitle = "${favorites.size} saved · shared with Lumisound",
+                eyebrow = "Saved",
+                onBack = onBack,
+            )
         }
         item {
             IconSectionHeader(

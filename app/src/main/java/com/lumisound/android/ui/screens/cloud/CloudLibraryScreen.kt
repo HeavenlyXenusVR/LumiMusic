@@ -22,10 +22,12 @@ fun CloudLibraryScreen(
     container: AppContainer,
     onOpenImport: () -> Unit,
     onAddToPlaylist: (title: String, artist: String?, album: String?, songId: String, durationSeconds: Int) -> Unit,
+    initialView: CloudView = CloudView.All,
+    onBack: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    var view by remember { mutableStateOf(CloudView.All) }
+    var view by remember { mutableStateOf(initialView) }
 
     val all by remember(query) {
         if (query.isBlank()) container.database.cloudTracks().observeAll()
@@ -54,6 +56,7 @@ fun CloudLibraryScreen(
     }
 
     CloudLibraryContent(
+        onBack = onBack,
         tracks = shown,
         recentlyAdded = recent,
         favoriteIds = favoriteSet,

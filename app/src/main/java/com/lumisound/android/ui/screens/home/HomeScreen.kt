@@ -48,6 +48,21 @@ fun HomeScreen(container: AppContainer, onOpen: (Route) -> Unit, onOpenFriends: 
     val trending = rememberLoadable(Unit, "home.trending") { api.communityTrending().tracks }
     val twin = rememberLoadable(Unit, "home.twin") { api.listeningTwin() }
     val unread = rememberLoadable(Unit, "home.unread") { api.notifications(limit = 99, unreadOnly = true).size }
+    val circle = rememberLoadable(Unit, "home.circle") {
+        val social = container.http.social
+        val friends = social.friends().friends.associateBy { it.userId }
+        social.friendsPresence().presence
+            .filter { it.isPlaying && it.nowPlayingTitle != null && it.userId in friends }
+            .map { presence ->
+                LiveFriend(
+                    userId = presence.userId,
+                    name = friends.getValue(presence.userId).shownName,
+                    title = presence.nowPlayingTitle.orEmpty(),
+                    artist = presence.nowPlayingArtist,
+                    avatarModel = BridgeUrls.avatar(container.config.baseUrl, presence.userId),
+                )
+            }
+    }
 
     fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 
@@ -55,6 +70,8 @@ fun HomeScreen(container: AppContainer, onOpen: (Route) -> Unit, onOpenFriends: 
         data = HomeData(
             displayName = user?.displayName?.takeIf { it.isNotBlank() } ?: user?.username,
             unreadNotifications = unread.state.valueOrNull ?: 0,
+            avatarModel = user?.id?.let { BridgeUrls.avatar(container.config.baseUrl, it) },
+            circle = circle.state,
             dailyPick = dailyPick.state,
             weeklyMix = weeklyMix.state,
             discoverMix = discoverMix.state,
@@ -73,10 +90,11 @@ fun HomeScreen(container: AppContainer, onOpen: (Route) -> Unit, onOpenFriends: 
                     HomeShortcut.Podcasts -> onOpen(Route.Podcasts)
                     HomeShortcut.Notifications -> onOpen(Route.Notifications)
                     HomeShortcut.Friends -> onOpenFriends()
+                    HomeShortcut.Settings -> onOpen(Route.Settings)
                 }
             },
             onRefresh = {
-                listOf(dailyPick, weeklyMix, discoverMix, continueListening, onThisDay, recent, trending, twin, unread)
+                listOf(dailyPick, weeklyMix, discoverMix, continueListening, onThisDay, recent, trending, twin, unread, circle)
                     .forEach { it.reload() }
             },
             onPlayStreams = { tracks, index -> container.playStreams(tracks, index) },
