@@ -231,7 +231,7 @@ fun PlaylistGridContent(
         ) {
             items(playlists, key = { it.id }) { playlist ->
                 var menuOpen by remember { mutableStateOf(false) }
-                Column(Modifier.clip(RoundedCornerShape(22.dp)).clickable { onOpen(playlist) }) {
+                Column(Modifier.clip(RoundedCornerShape(8.dp)).clickable { onOpen(playlist) }) {
                     Box {
                         CollageArt(
                             keys = playlistCollageKeys(playlist.id, playlist.name),

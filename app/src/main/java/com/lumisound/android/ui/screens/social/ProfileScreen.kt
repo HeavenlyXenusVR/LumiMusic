@@ -272,6 +272,8 @@ private fun MatchDial(match: CompatibilityDto) {
                 Eyebrow("taste match")
             }
         }
+        // The arc's round caps hang below the canvas; keep the reasons clear of them.
+        Spacer(Modifier.height(14.dp))
         match.reasons.forEach {
             Spacer(Modifier.height(6.dp))
             Text("• $it", style = MaterialTheme.typography.bodyMedium)

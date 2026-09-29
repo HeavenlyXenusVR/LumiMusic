@@ -55,7 +55,7 @@ data class LumiPalette(
     val hairline: Color,
     val accentWash: Color,
     /** A second, stronger glass for things that must stand off the page (the dock, heroes). */
-    val glassStrong: Color = Color(0xCC12141F),
+    val glassStrong: Color = Color(0xF512141F),
 ) {
     /** The accent run into a lighter, warmer twin -- used on primary actions. */
     val accentBrush: Brush get() = Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.72f).compositeOver(Color(0xFFFFB199))))

@@ -121,7 +121,7 @@ fun LibraryHomeContent(
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(data.playlists, key = { it.id }) { playlist ->
-                        Column(Modifier.width(140.dp).clip(RoundedCornerShape(20.dp)).clickable { onOpenPlaylist(playlist) }) {
+                        Column(Modifier.width(140.dp).clip(RoundedCornerShape(8.dp)).clickable { onOpenPlaylist(playlist) }) {
                             CollageArt(
                                 keys = listOf(playlist.id, playlist.name, "${playlist.id}-2", "${playlist.name}-3"),
                                 size = 140.dp,
