@@ -37,6 +37,8 @@ the equalizer, and a full diagnostics/telemetry stack -- and now the breadth sur
   monthly/yearly recaps you can share, and Lumisound's full badge set.
 - **Inbox and scrobbling** -- notifications, and Last.fm / Libre.fm / ListenBrainz status
   with a ListenBrainz token field and an on/off switch.
+- **Whole-library downloads** -- one switch keeps every cloud track on the phone, locked
+  ones included, filed as Artist/Album with a cover and a metadata file beside each.
 - **Gallery background** -- the photos Lumisound on iPhone backs up for its background
   import on their own and play as a slideshow behind every screen, with the iPhone's
   opacity, blur, timing and transition.

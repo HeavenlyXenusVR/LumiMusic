@@ -1,5 +1,9 @@
 package com.lumisound.android.ui.screens.downloads
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +44,16 @@ fun DownloadsScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val active by container.downloads.active.collectAsStateWithLifecycle()
     val queued by container.downloads.queued.collectAsStateWithLifecycle()
+    val offlinePrefs by container.downloads.settings.state.collectAsStateWithLifecycle()
+    val librarySync by container.downloads.library.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { container.downloads.refreshCounts() }
+    val folderLabel = remember(offlinePrefs.folderUri) { container.downloads.settings.storage().label }
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            container.downloads.settings.setFolder(uri)
+            container.scheduleLibraryDownload()
+        }
+    }
 
     val totalMb = downloads.sumOf { it.sizeBytes } / 1_048_576
     Column(Modifier.fillMaxSize()) {
@@ -48,6 +62,26 @@ fun DownloadsScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
             subtitle = "${downloads.size} tracks · $totalMb MB on this phone",
             eyebrow = "Downloads",
             onBack = onBack,
+        )
+        LibraryDownloadPanel(
+            prefs = offlinePrefs,
+            sync = librarySync,
+            folderLabel = folderLabel,
+            callbacks = LibraryDownloadCallbacks(
+                onWholeLibrary = { on ->
+                    container.downloads.settings.setDownloadWholeLibrary(on)
+                    container.scheduleLibraryDownload()
+                },
+                onWifiOnly = { on ->
+                    container.downloads.settings.setWifiOnly(on)
+                    // The network constraint changes, so the waiting run is replaced.
+                    container.scheduleLibraryDownload(restart = true)
+                },
+                onSyncNow = { container.scheduleLibraryDownload(restart = true) },
+                onChooseFolder = { pickFolder.launch(null) },
+                onUsePhoneFolder = { container.downloads.settings.setFolder(null) },
+            ),
+            modifier = Modifier.padding(bottom = 8.dp),
         )
         active?.let { progress ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).then(
@@ -107,7 +141,12 @@ fun DownloadsScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
                     Modifier.fillMaxWidth().padding(start = 18.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    com.lumisound.android.ui.components.Artwork(model = null, fallbackKey = download.serverPath, size = 48.dp, corner = 13.dp)
+                    com.lumisound.android.ui.components.Artwork(
+                        model = com.lumisound.android.bridge.BridgeUrls.cloudArtwork(container.config.baseUrl, download.serverPath),
+                        fallbackKey = download.serverPath,
+                        size = 48.dp,
+                        corner = 13.dp,
+                    )
                     androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(

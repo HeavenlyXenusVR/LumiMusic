@@ -125,6 +125,8 @@ data class HomeCallbacks(
     val onPlayByName: (String, String?) -> Unit = { _, _ -> },
     val onPlayTwinMix: () -> Unit = {},
     val weeklyMixArtwork: (String) -> Any? = { null },
+    /** The cover for a history entry that is a cloud track, or null for anything else. */
+    val historyArtwork: (HistoryEntryDto) -> Any? = { null },
 )
 
 /** One card in the spotlight carousel at the top of Home. */
@@ -184,7 +186,7 @@ fun HomeContent(data: HomeData, callbacks: HomeCallbacks) {
 
         data.recentlyPlayed.valueOrNull?.takeIf { it.isNotEmpty() }?.let { history ->
             item { IconSectionHeader(Icons.Filled.History, "Jump back in", tint = SectionTint.Favorites) }
-            item { JumpBackGrid(history.take(6), callbacks.onPlayHistory) }
+            item { JumpBackGrid(history.take(6), callbacks.historyArtwork, callbacks.onPlayHistory) }
         }
 
         data.discoverMix.valueOrNull?.takeIf { it.isNotEmpty() }?.let { tracks ->
@@ -200,7 +202,7 @@ fun HomeContent(data: HomeData, callbacks: HomeCallbacks) {
                         ShelfCard(
                             title = track.title,
                             subtitle = trackSubtitle(track.title, track.artist, track.album),
-                            artworkModel = if (track.hasArtwork) callbacks.weeklyMixArtwork(track.relativePath) else null,
+                            artworkModel = callbacks.weeklyMixArtwork(track.relativePath),
                             fallbackKey = track.relativePath,
                             onClick = { callbacks.onPlayWeeklyMix(index, false) },
                             size = 128.dp,
@@ -421,7 +423,7 @@ private fun QuickRow(onShortcut: (HomeShortcut) -> Unit) {
 
 /** Six recent things as a two-column grid of compact tiles -- the fastest way back in. */
 @Composable
-private fun JumpBackGrid(history: List<HistoryEntryDto>, onPlay: (HistoryEntryDto) -> Unit) {
+private fun JumpBackGrid(history: List<HistoryEntryDto>, artworkFor: (HistoryEntryDto) -> Any?, onPlay: (HistoryEntryDto) -> Unit) {
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         history.chunked(2).forEach { pair ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -429,7 +431,7 @@ private fun JumpBackGrid(history: List<HistoryEntryDto>, onPlay: (HistoryEntryDt
                     val title = entry.title ?: "Unknown"
                     LumiCard(Modifier.weight(1f), onClick = { onPlay(entry) }, corner = 16.dp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Artwork(null, entry.localSongId ?: entry.trackUrl ?: title, 58.dp, corner = 0.dp)
+                            Artwork(artworkFor(entry), entry.localSongId ?: entry.trackUrl ?: title, 58.dp, corner = 0.dp)
                             Column(Modifier.padding(horizontal = 10.dp)) {
                                 Text(title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }

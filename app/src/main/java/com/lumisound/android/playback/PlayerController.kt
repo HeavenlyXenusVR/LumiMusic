@@ -29,6 +29,7 @@ data class QueueItem(
     val title: String,
     val artist: String,
     val isCurrent: Boolean,
+    val artworkUri: String? = null,
 )
 
 data class PlaybackUiState(
@@ -269,6 +270,7 @@ class PlayerController(
                 title = item.mediaMetadata.title?.toString() ?: "Unknown",
                 artist = item.mediaMetadata.artist?.toString().orEmpty(),
                 isCurrent = index == player.currentMediaItemIndex,
+                artworkUri = item.mediaMetadata.artworkUri?.toString(),
             )
         }
     }

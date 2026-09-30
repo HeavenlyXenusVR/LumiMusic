@@ -1,5 +1,10 @@
 package com.lumisound.android
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
+import com.lumisound.android.download.LibraryDownloadWorker
+import com.lumisound.android.cloud.ArtworkWarmer
 import com.lumisound.android.gallery.GalleryBackgroundStore
 import android.content.Context
 import com.lumisound.android.audio.AudioSessionHolder
@@ -60,6 +65,7 @@ class AppContainer(private val context: Context) {
     val libraryRepository by lazy { LibraryRepository(http, database, remoteLogger) }
     val libraryScanner by lazy { LibraryScanner(context, database, remoteLogger) }
     val downloads by lazy { DownloadManager(context, http, config, database, remoteLogger, scope) }
+    val artworkWarmer by lazy { ArtworkWarmer(context, database, config, scope) }
     val equalizer by lazy { EqualizerController(context) }
     val player by lazy { PlayerController(context, config, scope) }
     val lyrics by lazy { LyricsRepository(http) }
@@ -112,12 +118,29 @@ class AppContainer(private val context: Context) {
             // Only worth asking once there is a session to ask with.
             if (account.isSignedIn) {
                 cloudImport.refreshAccent()
+                artworkWarmer.warm()
+                scheduleLibraryDownload()
                 gallery.sync()
+            }
+        }
+        scope.launch {
+            // Every finished import brings a fresh track list: fetch the new covers, and
+            // download any new tracks if the whole library is kept on the phone.
+            cloudImport.progress.map { it.finishedAt }.filterNotNull().distinctUntilChanged().collect {
+                artworkWarmer.warm()
+                scheduleLibraryDownload()
             }
         }
         scope.launch {
             // The equalizer can only bind once the player has a real session id.
             AudioSessionHolder.sessionId.collectLatest { id -> if (id != 0) equalizer.attach(id) }
         }
+    }
+
+    /** Starts (or keeps running) the whole-library download when it is switched on. */
+    fun scheduleLibraryDownload(restart: Boolean = false) {
+        val prefs = downloads.settings.state.value
+        if (prefs.downloadWholeLibrary) LibraryDownloadWorker.schedule(context, prefs.wifiOnly, restart)
+        else LibraryDownloadWorker.cancel(context)
     }
 }

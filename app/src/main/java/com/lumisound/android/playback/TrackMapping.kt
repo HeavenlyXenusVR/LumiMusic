@@ -57,13 +57,17 @@ fun CloudTrackEntity.toPlayable(baseUrl: String, downloadedPath: String? = null)
     artist = artist,
     album = album,
     uri = if (downloadedPath != null) {
-        Uri.fromFile(java.io.File(downloadedPath)).buildUpon()
+        // A download is a file path in the phone folder, or a content:// document in a
+        // folder the user chose.
+        val local = if (downloadedPath.startsWith("content://")) Uri.parse(downloadedPath) else Uri.fromFile(java.io.File(downloadedPath))
+        local.buildUpon()
             .apply { if (isLocked) appendQueryParameter(BridgeUrls.LOCKED_MARKER, BridgeUrls.LOCKED_MARKER_VALUE) }
             .build().toString()
     } else {
         BridgeUrls.stream(baseUrl, serverPath, isLocked)
     },
-    artworkUri = if (hasArtwork) BridgeUrls.artwork(baseUrl, serverPath) else null,
+    // Always asked for: see BridgeUrls.cloudArtwork.
+    artworkUri = BridgeUrls.cloudArtwork(baseUrl, serverPath),
     genre = genre,
     durationMs = (durationSeconds * 1000).toLong(),
     isLocked = isLocked,
@@ -113,7 +117,7 @@ fun WeeklyMixTrackDto.toPlayable(baseUrl: String): PlayableTrack {
         artist = artist,
         album = album,
         uri = BridgeUrls.stream(baseUrl, relativePath, locked),
-        artworkUri = if (hasArtwork) BridgeUrls.artwork(baseUrl, relativePath) else null,
+        artworkUri = BridgeUrls.cloudArtwork(baseUrl, relativePath),
         isLocked = locked,
         serverPath = relativePath,
     )

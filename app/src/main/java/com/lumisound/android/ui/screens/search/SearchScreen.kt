@@ -135,7 +135,7 @@ fun SearchScreen(container: AppContainer) {
                 }
             },
             libraryArtwork = { track ->
-                if (track.hasArtwork) BridgeUrls.artwork(container.config.baseUrl, track.serverPath) else null
+                BridgeUrls.cloudArtwork(container.config.baseUrl, track.serverPath)
             },
             onClearRecent = container.searchHistory::clear,
             onRetry = { searchGeneration++ },

@@ -64,7 +64,7 @@ class LumisoundLockDataSource(
         val shifted = if (headerBytes == 0) dataSpec else {
             dataSpec.buildUpon().setPosition(dataSpec.position + headerBytes).build()
         }
-        return upstream.open(shifted)
+        return upstream.open(shifted.buildUpon().setUri(upstreamUri(dataSpec.uri)).build())
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
@@ -100,7 +100,7 @@ class LumisoundLockDataSource(
         val offset = try {
             probe.open(
                 DataSpec.Builder()
-                    .setUri(dataSpec.uri)
+                    .setUri(upstreamUri(dataSpec.uri))
                     .setPosition(0)
                     .setLength(MAGIC.size.toLong())
                     .build()
@@ -128,6 +128,20 @@ class LumisoundLockDataSource(
         }
         headerOffsets[key] = offset
         return offset
+    }
+
+    /**
+     * The URI as the upstream source should see it. The marker is harmless on an http
+     * or file URI (a query the server ignores, or one a file path never reads), but a
+     * `content://` document in a folder the user chose is opened by a provider that
+     * may not expect one, so it is taken off there.
+     */
+    private fun upstreamUri(uri: Uri): Uri {
+        if (uri.scheme != "content" || uri.getQueryParameter(LOCKED_MARKER) == null) return uri
+        val kept = uri.queryParameterNames.filter { it != LOCKED_MARKER }
+        return uri.buildUpon().clearQuery().apply {
+            kept.forEach { name -> uri.getQueryParameters(name).forEach { appendQueryParameter(name, it) } }
+        }.build()
     }
 
     /** Wraps any upstream factory so locked tracks unmask transparently. */

@@ -60,6 +60,21 @@ object BridgeUrls {
             .build()
             .toString()
 
+    /**
+     * The cover for a cloud track, whatever its `has_artwork` says.
+     *
+     * The flag is a hint that trails the truth. The bridge's artwork endpoint finds a
+     * cover on request -- a thumbnail uploaded with the track, the file's embedded
+     * picture, or, for a locked `.lms` file, the picture or thumbnail tag inside the
+     * lock -- and only then sets `has_artwork`, while a background pass fills it in for
+     * the rest over time. Asking only when the flag was already true meant most of a
+     * library, and nearly every locked track, never asked at all. A track that truly has
+     * none costs one small 404, which the bridge answers from its negative cache, and
+     * the generated cover stays in place.
+     */
+    fun cloudArtwork(baseUrl: String, serverPath: String): String? =
+        serverPath.takeIf { it.isNotBlank() }?.let { artwork(baseUrl, it) }
+
     fun avatar(baseUrl: String, userId: String): String =
         Uri.parse(BridgeConfig.normalise(baseUrl)).buildUpon()
             .appendEncodedPath("user/avatar")

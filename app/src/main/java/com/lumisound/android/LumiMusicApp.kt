@@ -44,9 +44,10 @@ class LumiMusicApp : Application(), SingletonImageLoader.Factory {
             .diskCache {
                 // Worth having: the same few thousand thumbnails are otherwise refetched on
                 // every scroll through the library, over someone's mobile connection.
+                // Sized for a whole library's covers, which ArtworkWarmer fetches ahead.
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("artwork").toOkioPath())
-                    .maxSizeBytes(192L * 1024 * 1024)
+                    .maxSizeBytes(512L * 1024 * 1024)
                     .build()
             }
             .crossfade(true)

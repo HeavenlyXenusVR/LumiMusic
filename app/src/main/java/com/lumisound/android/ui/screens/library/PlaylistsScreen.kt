@@ -1,5 +1,6 @@
 package com.lumisound.android.ui.screens.library
 
+import com.lumisound.android.bridge.BridgeUrls
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,6 +83,10 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun PlaylistsScreen(container: AppContainer, onBack: (() -> Unit)? = null, initialPlaylistId: String? = null) {
+    val cloudPathList by container.database.cloudTracks().observePaths()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val cloudPaths = remember(cloudPathList) { cloudPathList.toHashSet() }
+
     val scope = rememberCoroutineScope()
     var openPlaylistId by remember { mutableStateOf(initialPlaylistId) }
     var creating by remember { mutableStateOf(false) }
@@ -113,6 +118,9 @@ fun PlaylistsScreen(container: AppContainer, onBack: (() -> Unit)? = null, initi
             playlistId = selected,
             tracks = tracks,
             playingTitle = playback.title,
+            artworkFor = { track ->
+                track.localSongId?.takeIf { it in cloudPaths }?.let { BridgeUrls.cloudArtwork(container.config.baseUrl, it) }
+            },
             onBack = { if (initialPlaylistId != null && onBack != null) onBack() else openPlaylistId = null },
             onPlay = { shuffle ->
                 scope.launch {
@@ -272,6 +280,8 @@ fun PlaylistDetailContent(
     onRefresh: () -> Unit,
     onRemove: (String) -> Unit,
     note: String?,
+    /** The cover for a row that is a cloud track; null leaves the generated one. */
+    artworkFor: (PlaylistTrackEntity) -> Any? = { null },
 ) {
     val totalSeconds = tracks.sumOf { (it.durationSeconds ?: 0.0).toInt() }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -312,7 +322,7 @@ fun PlaylistDetailContent(
                 TrackRow(
                     title = track.title ?: "Untitled",
                     subtitle = trackSubtitle(track.title.orEmpty(), track.artist, track.album),
-                    artworkModel = null,
+                    artworkModel = artworkFor(track),
                     fallbackKey = track.localSongId ?: track.trackUrl ?: track.title ?: track.position.toString(),
                     duration = track.durationSeconds?.takeIf { it > 0 }?.let { "%d:%02d".format(it.toInt() / 60, it.toInt() % 60) },
                     isPlaying = playingTitle != null && playingTitle == track.title,
