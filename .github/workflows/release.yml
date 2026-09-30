@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag to build
+        description: >-
+          Release tag, e.g. v0.7.0. Run the workflow on the branch or tag to build;
+          a tag that does not exist yet is created on that commit when publishing.
         required: true
 
 jobs:
@@ -19,9 +21,21 @@ jobs:
       # "do we have a keystore" decision is hoisted into a plain env value.
       HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
     steps:
+      # A manual run builds the commit it was started on, so a release can be cut
+      # from a branch before its tag exists; a tag push builds the tag.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
+
+      - name: Check the tag matches the app version
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match versionName $version in app/build.gradle.kts"
+            exit 1
+          fi
 
       - uses: actions/setup-java@v4
         with:
@@ -57,6 +71,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
             app/build/outputs/apk/release/*.apk

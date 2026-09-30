@@ -1,5 +1,7 @@
 package com.lumisound.android.ui.screens.library
 
+import androidx.compose.runtime.remember
+import com.lumisound.android.bridge.BridgeUrls
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +43,9 @@ fun FavoritesScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val favorites by container.database.favorites().observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
+    val cloudPathList by container.database.cloudTracks().observePaths()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val cloudPaths = remember(cloudPathList) { cloudPathList.toHashSet() }
     val playback by container.player.state.collectAsStateWithLifecycle()
 
     if (favorites.isEmpty()) {
@@ -79,7 +84,7 @@ fun FavoritesScreen(container: AppContainer, onBack: (() -> Unit)? = null) {
                     favorite.artist,
                     favorite.album,
                 ),
-                artworkModel = null,
+                artworkModel = favorite.songId.takeIf { it in cloudPaths }?.let { BridgeUrls.cloudArtwork(container.config.baseUrl, it) },
                 fallbackKey = favorite.songId,
                 isPlaying = playback.serverPath == favorite.songId,
                 onClick = {

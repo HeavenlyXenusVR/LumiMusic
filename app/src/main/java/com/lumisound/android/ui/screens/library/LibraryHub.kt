@@ -185,6 +185,6 @@ fun LibraryHomeScreen(container: AppContainer, onOpen: (LibrarySection) -> Unit,
             }
         },
         onOpenPlaylist = { onOpenPlaylist(it.id) },
-        artworkFor = { track -> if (track.hasArtwork) BridgeUrls.artwork(container.config.baseUrl, track.serverPath) else null },
+        artworkFor = { track -> BridgeUrls.cloudArtwork(container.config.baseUrl, track.serverPath) },
     )
 }

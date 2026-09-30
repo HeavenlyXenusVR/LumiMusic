@@ -1,5 +1,11 @@
 package com.lumisound.android.screenshots
 
+import androidx.compose.foundation.layout.Column
+import com.lumisound.android.ui.components.ScreenTitle
+import com.lumisound.android.ui.screens.downloads.LibraryDownloadPanel
+import com.lumisound.android.ui.screens.downloads.LibraryDownloadCallbacks
+import com.lumisound.android.download.OfflinePrefs
+import com.lumisound.android.download.DownloadManager
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.asImageBitmap
 import com.lumisound.android.ui.screens.settings.GalleryCallbacks
@@ -658,5 +664,20 @@ class ScreenRenderTest {
         ridge(h * 0.66f, 22f, c[3], seed % 7 / 2f)
         ridge(h * 0.78f, 16f, c[4], seed % 5 / 3f)
         BitmapPainter(bitmap.asImageBitmap())
+    }
+
+    // --- Offline ------------------------------------------------------------------------
+
+    @Test
+    fun offlineLibrary() = capture("27-offline-library") {
+        Column {
+            ScreenTitle("Offline", subtitle = "1,204 tracks · 8,930 MB on this phone", eyebrow = "Downloads", onBack = {})
+            LibraryDownloadPanel(
+                prefs = OfflinePrefs(downloadWholeLibrary = true, wifiOnly = true),
+                sync = DownloadManager.LibrarySync(running = true, total = 2_310, saved = 1_204),
+                folderLabel = "Android/media/com.lumisound.android/LumiMusic",
+                callbacks = LibraryDownloadCallbacks(),
+            )
+        }
     }
 }

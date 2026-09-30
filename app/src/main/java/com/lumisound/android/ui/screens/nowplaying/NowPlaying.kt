@@ -434,7 +434,7 @@ private fun QueueFace(queue: List<QueueItem>, actions: StageActions) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Artwork(null, item.mediaId, 40.dp, corner = 10.dp)
+                    Artwork(item.artworkUri, item.mediaId, 40.dp, corner = 10.dp)
                     if (item.isCurrent) EqualizerBars(playing = true, color = Color.White, height = 14.dp)
                 }
                 Spacer(Modifier.width(10.dp))

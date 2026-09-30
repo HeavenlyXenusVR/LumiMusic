@@ -32,6 +32,14 @@ interface CloudTrackDao {
     @Query("SELECT COUNT(*) FROM cloud_tracks")
     suspend fun count(): Int
 
+    /** Every cloud track's path: tells a favorite or history row that names one apart from a streamed track. */
+    @Query("SELECT serverPath FROM cloud_tracks")
+    fun observePaths(): Flow<List<String>>
+
+    /** The whole library, oldest upload first, so a full download fills in the order it grew. */
+    @Query("SELECT * FROM cloud_tracks ORDER BY COALESCE(uploadedAt, '') ASC, serverPath")
+    suspend fun all(): List<CloudTrackEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tracks: List<CloudTrackEntity>)
 

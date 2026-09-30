@@ -76,6 +76,12 @@ interface DownloadDao {
     @Query("SELECT serverPath FROM downloads")
     fun observePaths(): Flow<List<String>>
 
+    @Query("SELECT serverPath FROM downloads")
+    suspend fun paths(): List<String>
+
+    @Query("SELECT * FROM downloads WHERE localPath = :localPath LIMIT 1")
+    suspend fun byLocalPath(localPath: String): DownloadEntity?
+
     @Query("SELECT COUNT(*) FROM downloads")
     suspend fun count(): Int
 

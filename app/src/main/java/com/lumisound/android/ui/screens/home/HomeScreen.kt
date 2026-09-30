@@ -1,5 +1,6 @@
 package com.lumisound.android.ui.screens.home
 
+import androidx.compose.runtime.remember
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -31,6 +32,9 @@ fun HomeScreen(container: AppContainer, onOpen: (Route) -> Unit, onOpenFriends: 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val account by container.account.state.collectAsStateWithLifecycle()
+    val cloudPathList by container.database.cloudTracks().observePaths()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val cloudPaths = remember(cloudPathList) { cloudPathList.toHashSet() }
     val user = (account as? AccountState.SignedIn)?.user
     val api = container.http.discovery
 
@@ -122,7 +126,10 @@ fun HomeScreen(container: AppContainer, onOpen: (Route) -> Unit, onOpenFriends: 
                     }
                 }
             },
-            weeklyMixArtwork = { path -> BridgeUrls.artwork(container.config.baseUrl, path) },
+            weeklyMixArtwork = { path -> BridgeUrls.cloudArtwork(container.config.baseUrl, path) },
+            historyArtwork = { entry ->
+                entry.localSongId?.takeIf { it in cloudPaths }?.let { BridgeUrls.cloudArtwork(container.config.baseUrl, it) }
+            },
         ),
     )
 }

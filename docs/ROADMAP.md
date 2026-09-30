@@ -140,6 +140,27 @@ Every screen was rebuilt, not restyled. The ideas, in the order they matter:
 
 Every screen has a stateless `…Content` composable and a render in `ScreenRenderTest`.
 
+## Whole-library downloads and artwork (v0.8.0)
+
+- **Keep my whole library on this phone** (Offline screen). A `LibraryDownloadWorker`
+  refreshes the cloud track list, then saves every track not yet on the phone, one at a
+  time, as a foreground job with a progress notification. It runs again every six hours
+  and after every import, so new uploads arrive on their own; Wi-Fi only is on by
+  default. A stopped run picks up where it left off.
+- **Where.** `Android/media/com.lumisound.android/LumiMusic` by default (no permission,
+  visible in the Files app and over USB), or any folder picked in the system folder
+  picker (Storage Access Framework; kept after uninstall). Layout:
+  `Artist/Album/NN Title.ext`, each with `NN Title.json` (every field the cloud library
+  holds) and `NN Title.jpg` (the cover). Locked tracks are saved as `.lms`, still masked;
+  the player unmasks them as it does when streaming. Downloads from earlier versions are
+  moved out of private storage on the next run instead of being fetched again.
+- **Artwork.** Covers were requested only when `has_artwork` was already true. That flag
+  trails the bridge's on-demand recovery (thumbnail, embedded picture, or the picture
+  inside a locked file), so most tracks, and nearly all locked ones, never asked. Every
+  cloud track now asks (`BridgeUrls.cloudArtwork`), and `ArtworkWarmer` pre-fetches the
+  whole library's covers into a 512 MB disk cache after each import, four at a time.
+  Favorites, playlists, Jump back in, the Up next queue and Offline now show covers too.
+
 ## Gallery background from Lumisound (v0.7.0)
 
 The photos Lumisound on iPhone backs up for its Gallery Background now appear behind

@@ -67,7 +67,7 @@ fun CloudLibraryScreen(
         view = view,
         onViewChange = { view = it },
         artworkModelFor = { track ->
-            if (track.hasArtwork) BridgeUrls.artwork(container.config.baseUrl, track.serverPath) else null
+            BridgeUrls.cloudArtwork(container.config.baseUrl, track.serverPath)
         },
         onPlay = { list, index ->
             scope.launch {
